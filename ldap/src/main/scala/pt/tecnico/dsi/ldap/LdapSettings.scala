@@ -4,8 +4,6 @@ import java.util.concurrent.TimeUnit
 
 import com.typesafe.config.{ConfigFactory, Config}
 
-import scala.concurrent.duration.{DurationLong, FiniteDuration}
-
 class LdapSettings(config: Config = ConfigFactory.load()) {
   private val path = "ldap"
 
@@ -13,21 +11,26 @@ class LdapSettings(config: Config = ConfigFactory.load()) {
   private val poolConfigs = config.getConfig(s"$path.pool")
 
   val host: String = config.getString(s"$path.host")
-  val baseDomain: String = config.getString(s"$path.base-domain")
+  val baseDomain: String = config.getString(s"$path.base-dn")
   val bindDN: String = config.getString(s"$path.bind-dn")
   val bindPassword: String = config.getString(s"$path.bind-password")
 
-  val connectionTimeout: FiniteDuration = config.getDuration("connection-timeout", TimeUnit.MINUTES).minutes
-  val responseTimeout: FiniteDuration = config.getDuration("response-timeout", TimeUnit.MINUTES).minutes
+  val connectionTimeout: Long = config.getDuration("connection-timeout", TimeUnit.MILLISECONDS)
+  val responseTimeout: Long = config.getDuration("response-timeout", TimeUnit.MILLISECONDS)
 
-  val blockWaitTime: FiniteDuration = poolConfigs.getDuration("block-wait-time", TimeUnit.MINUTES).minutes
+  val blockWaitTime: Long = poolConfigs.getDuration("block-wait-time", TimeUnit.MILLISECONDS)
   val minPoolSize: Int = poolConfigs.getInt("min-pool-size")
   val maxPoolSize: Int = poolConfigs.getInt("max-pool-size")
-  val validationPeriod: FiniteDuration = poolConfigs.getDuration("validation-period", TimeUnit.MINUTES).minutes
-  val prunePeriod: FiniteDuration = poolConfigs.getDuration("prune-period", TimeUnit.MINUTES).minutes
-  val pruneIdleTime: FiniteDuration = poolConfigs.getDuration("prude-idle-time", TimeUnit.MINUTES).minutes
+  val validationPeriod: Long = poolConfigs.getDuration("validation-period", TimeUnit.MILLISECONDS)
+  val prunePeriod: Long = poolConfigs.getDuration("prune-period", TimeUnit.MILLISECONDS)
+  val pruneIdleTime: Long = poolConfigs.getDuration("prude-idle-time", TimeUnit.MILLISECONDS)
 
   val enableSSL: Boolean = sslConfigs.getBoolean("enable-ssl")
+  val trustStore: String = ???
+  val trustStorePassword: String = ???
+  val trustStoreType: String = ???
+  val protocol: String = ???
+  val ciphers: String = ???
 
   // This verifies that the Config is sane and has our reference config. Importantly, we specify the "path"
   // path so we only validate settings that belong to this library.
