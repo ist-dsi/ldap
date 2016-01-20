@@ -26,11 +26,10 @@ class LdapSettings(config: Config = ConfigFactory.load()) {
   val pruneIdleTime: Long = poolConfigs.getDuration("prude-idle-time", TimeUnit.MILLISECONDS)
 
   val enableSSL: Boolean = sslConfigs.getBoolean("enable-ssl")
-  val trustStore: String = ???
-  val trustStorePassword: String = ???
-  val trustStoreType: String = ???
-  val protocol: String = ???
-  val ciphers: String = ???
+  val trustStore: String = sslConfigs.getString("trust-store")
+  val trustStorePassword: String = sslConfigs.getString("trust-store-password")
+  val protocol: String = sslConfigs.getString("protocol")
+  val enabledAlgorithms: String = sslConfigs.getString("enabled-algorithms")
 
   // This verifies that the Config is sane and has our reference config. Importantly, we specify the "path"
   // path so we only validate settings that belong to this library.

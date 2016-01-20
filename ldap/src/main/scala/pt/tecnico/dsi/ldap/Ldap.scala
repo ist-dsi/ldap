@@ -1,5 +1,7 @@
 package pt.tecnico.dsi.ldap
 
+import java.security.KeyStore
+
 import org.ldaptive.pool._
 import org.ldaptive.provider.unboundid.UnboundIDProvider
 import org.ldaptive.ssl.{SslConfig, KeyStoreCredentialConfig}
@@ -20,12 +22,12 @@ class Ldap(settings: LdapSettings) {
     val keyStoreConfig = new KeyStoreCredentialConfig()
     keyStoreConfig.setTrustStore(settings.trustStore)
     keyStoreConfig.setTrustStorePassword(settings.trustStorePassword)
-    keyStoreConfig.setTrustStoreType(settings.trustStoreType)
+    keyStoreConfig.setTrustStoreType(KeyStore.getDefaultType)
 
     val sslConfig = new SslConfig()
     sslConfig.setCredentialConfig(keyStoreConfig)
     sslConfig.setEnabledProtocols(settings.protocol)
-    sslConfig.setEnabledCipherSuites(settings.ciphers)
+    sslConfig.setEnabledCipherSuites(settings.enabledAlgorithms)
 
     connectionConfig.setSslConfig(sslConfig)
   }
