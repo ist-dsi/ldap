@@ -2,12 +2,14 @@ package pt.tecnico.dsi.ldap
 
 import java.security.KeyStore
 
+import com.typesafe.scalalogging.LazyLogging
+
 import org.ldaptive.pool._
 import org.ldaptive.provider.unboundid.UnboundIDProvider
 import org.ldaptive.ssl.{SslConfig, KeyStoreCredentialConfig}
 import org.ldaptive._
 
-class Ldap(settings: LdapSettings) {
+class Ldap(settings: LdapSettings) extends LazyLogging {
 
   private val credential: Credential = new Credential(settings.bindPassword)
 
@@ -55,4 +57,9 @@ class Ldap(settings: LdapSettings) {
   pool.setPruneStrategy(new IdlePruneStrategy(settings.prunePeriod, settings.pruneIdleTime))
 
   implicit private val pooledConnectionFactory: PooledConnectionFactory = new PooledConnectionFactory(pool)
+
+  def initializePool(): Unit = {
+    pool.initialize()
+    logger.info("Connection pool initialized successfully.")
+  }
 }
