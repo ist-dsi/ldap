@@ -14,8 +14,8 @@ libraryDependencies ++= Seq(
   "org.ldaptive" % "ldaptive" % "1.1.0",
   "org.ldaptive" % "ldaptive-unboundid" % "1.1.0",
   //Logging
-  "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0" % "test",
-  "ch.qos.logback" % "logback-classic" % "1.1.3" % "test",
+  "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
+  "ch.qos.logback" % "logback-classic" % "1.1.3",
   //Testing
   "org.scalatest" %% "scalatest" % "2.2.4" % "test",
   //Configuration
