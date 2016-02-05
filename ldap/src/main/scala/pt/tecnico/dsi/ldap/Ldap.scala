@@ -29,7 +29,7 @@ class Ldap(settings: LdapSettings) extends LazyLogging {
     val sslConfig = new SslConfig()
     sslConfig.setCredentialConfig(keyStoreConfig)
     sslConfig.setEnabledProtocols(settings.protocol)
-    sslConfig.setEnabledCipherSuites(settings.enabledAlgorithms)
+    sslConfig.setEnabledCipherSuites(settings.enabledAlgorithms:_*)
 
     connectionConfig.setSslConfig(sslConfig)
   }

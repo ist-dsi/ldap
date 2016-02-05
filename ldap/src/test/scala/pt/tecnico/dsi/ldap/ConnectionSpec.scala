@@ -1,8 +1,7 @@
 package pt.tecnico.dsi.ldap
 
-/**
-  * Created by david on 2/5/16.
-  */
-class ConnectionSpec {
-
+class ConnectionSpec extends UnitSpec {
+  "EstablishConnection" should "succeed" in {
+    new Ldap(new LdapSettings()).initializePool()
+  }
 }
