@@ -7,18 +7,18 @@ cache:
   - "$HOME/.sbt/boot/"
 
 scala:
-- 2.11.7
+  - 2.11.7
 
 jdk:
-- oraclejdk8
+  - oraclejdk8
 
 env:
-  - TEST_DIR = ldap
+  - TEST_DIR=ldap
 
 script:
-- cd $TEST_DIR && sbt ++$TRAVIS_SCALA_VERSION test
-- find $HOME/.sbt -name "*.lock" | xargs rm
-- find $HOME/.ivy2 -name "ivydata-*.properties" | xargs rm
+  - cd $TEST_DIR && sbt ++$TRAVIS_SCALA_VERSION test
+  - find $HOME/.sbt -name "*.lock" | xargs rm
+  - find $HOME/.ivy2 -name "ivydata-*.properties" | xargs rm
 
 notifications:
   slack:
