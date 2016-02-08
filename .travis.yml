@@ -12,8 +12,11 @@ scala:
 jdk:
 - oraclejdk8
 
+env:
+  - TEST_DIR = ldap
+
 script:
-- sbt ++$TRAVIS_SCALA_VERSION test
+- cd $TEST_DIR && sbt ++$TRAVIS_SCALA_VERSION test
 - find $HOME/.sbt -name "*.lock" | xargs rm
 - find $HOME/.ivy2 -name "ivydata-*.properties" | xargs rm
 
