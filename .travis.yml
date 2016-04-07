@@ -1,0 +1,25 @@
+sudo: false
+language: scala
+
+cache:
+  directories:
+  - "$HOME/.ivy2/cache"
+  - "$HOME/.sbt/boot/"
+
+scala:
+  - 2.11.7
+
+jdk:
+  - oraclejdk8
+
+env:
+  - TEST_DIR=ldap
+
+script:
+  - cd $TEST_DIR && sbt ++$TRAVIS_SCALA_VERSION test
+  - find $HOME/.sbt -name "*.lock" | xargs rm
+  - find $HOME/.ivy2 -name "ivydata-*.properties" | xargs rm
+
+notifications:
+  slack:
+    secure: JEo5H/U6oKquJye8IKRn/8sBk0oz3O7mgKvPVt4bB9d9vVjcLrEjG8TeH/GRAf2zys/kvECHjwJpsnbKZycRsghsuGv8Yy5f7WpS69b8sXs/Ru5Mv7whiWAXie77/fBi4txrhG3d0W3G/oQR/XBcRol14VH2YG8H6g5K1ox3vBXHkNLsOPgCn/VYZSp7G3hSkWK1D5gbi2oHv1jwVtYuqW8muPIPQrXQ7LCI6xBzGurX3Qiog89kclQ06Ld3A3kiC3bd3P3/hBZU1mlFLyZequGDIrQNoXwdAh5QEjydrZ2s6tLZyAqybu2EJD9cMaEv2Ld7YitWwBupwQ+pHetfb9m4/1u8a/FpoxgFxRGhZPDRdTFexZi/7BbRM85kd0cY0dl/2pELqWk36lDUkBsQ6C+NtCwCnbtr3cfUfwFXghXAMEgrnIEBmDvmelydRqIJ8l/x0oGWArRFDWixZBGp3uvds5tlJAOltbuD15DvSCg1fvWQdhtqRlXORvI+QRKKIZEv1ye+UZtO56EdNvnCH8na2NoVqjMwC49BiSW7m9hepUeXluRQy9PzPL4+QyCBLHLbgncOy/pTx9EK2cCG9c1/hBo5r87NQciC17py/dAjxTmrGfKtSTA5/miE5fV6rMuawJYXJf7N2ak+LUvXQgn+fCbVwWdfldd8z/vCerI=

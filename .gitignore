@@ -269,3 +269,7 @@ test-result
 server.pid
 *.eml
 /dist/
+
+### Vagrant ###
+.vagrant/
+

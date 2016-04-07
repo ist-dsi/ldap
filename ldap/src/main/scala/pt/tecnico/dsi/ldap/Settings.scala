@@ -91,7 +91,7 @@ class Settings(config: Config = ConfigFactory.load()) {
 
   val searchDereferenceAlias: String = searchConfigs.getString("dereference-alias")
   val searchScope: String = searchConfigs.getString("scope")
-  val searchFollowReferrals: Boolean = searchConfigs.getBoolean("follow-referrals")
+//  val searchFollowReferrals: Boolean = searchConfigs.getBoolean("follow-referrals")
   val searchSizeLimit: Int = searchConfigs.getInt("size-limit")
   val searchTimeLimit: Long = config.getDuration("time-limit", TimeUnit.MILLISECONDS)
 }
