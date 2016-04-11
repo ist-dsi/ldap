@@ -65,7 +65,6 @@ class Ldap(val settings: Settings = new Settings()) extends LazyLogging {
     }
 
   private def fixLdapEntry(entry: LdapEntry): Option[Entry] = {
-
     Option(entry)
       .filter(_.getAttributes != null)
       .map { e =>
