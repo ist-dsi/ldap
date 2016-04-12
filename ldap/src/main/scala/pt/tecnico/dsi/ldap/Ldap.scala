@@ -1,6 +1,5 @@
 package pt.tecnico.dsi.ldap
 
-
 import com.typesafe.scalalogging.LazyLogging
 import org.ldaptive.pool._
 import org.ldaptive._
@@ -42,6 +41,16 @@ class Ldap(val settings: Settings = new Settings()) extends LazyLogging {
     }
   }
 
+  def add(dn: String, attributes: Map[String, String]): Future[Unit] = withConnection { connection =>
+    val ldapAttributes: Seq[LdapAttribute] = attributes.map { case (name, value) =>
+      new LdapAttribute(name, value)
+    }.toSeq
+
+    new AddOperation(connection).execute(new AddRequest(appendBaseDn(dn), ldapAttributes.asJavaCollection))
+  }
+
+  def delete(dn: String): Future[Unit] = withConnection(new DeleteOperation(_).execute(new DeleteRequest(dn)))
+
   def addAttributes(dn: String, attributes: Map[String, String]): Future[Unit] = {
     val attributesModification: Seq[AttributeModification] = attributes.map { case (name, value) =>
       new AttributeModification(AttributeModificationType.ADD, new LdapAttribute(name, value))
@@ -66,12 +75,13 @@ class Ldap(val settings: Settings = new Settings()) extends LazyLogging {
     executeModifyOperation(dn, attributesModification)
   }
 
-  private def executeModifyOperation(dn: String, attributes: Seq[AttributeModification]): Future[Unit] = withConnection {
-    connection => new ModifyOperation(connection).execute(new ModifyRequest(dn, attributes: _*))
-  }
+  private def executeModifyOperation(dn: String, attributes: Seq[AttributeModification]): Future[Unit] =
+    withConnection { connection =>
+      new ModifyOperation(connection).execute(new ModifyRequest(appendBaseDn(dn), attributes: _*))
+    }
 
-  private def createSearchResult(ou: String, filter: String, attributes: Seq[String])(implicit connection: Connection) = {
-    val request = new SearchRequest(s"$ou,$baseDomain", filter, attributes: _*)
+  private def createSearchResult(dn: String, filter: String, attributes: Seq[String])(implicit connection: Connection) = {
+    val request = new SearchRequest(appendBaseDn(dn), filter, attributes: _*)
     request.setDerefAliases(DerefAliases.valueOf(searchDereferenceAlias))
     request.setSearchScope(SearchScope.valueOf(searchScope))
     request.setSizeLimit(searchSizeLimit)
@@ -80,15 +90,15 @@ class Ldap(val settings: Settings = new Settings()) extends LazyLogging {
     new SearchOperation(connection).execute(request).getResult
   }
 
-  def search(ou: String, filter: String, attributes: Seq[String] = Seq.empty): Future[Option[Entry]] =
+  def search(dn: String, filter: String, attributes: Seq[String] = Seq.empty): Future[Option[Entry]] =
     withConnection { connection =>
-      val result: LdapEntry = createSearchResult(ou, filter, attributes).getEntry
+      val result: LdapEntry = createSearchResult(dn, filter, attributes).getEntry
       fixLdapEntry(result)
     }
 
-  def searchAll(ou: String, filter: String, attributes: Seq[String] = Seq.empty): Future[Seq[Entry]] =
+  def searchAll(dn: String, filter: String, attributes: Seq[String] = Seq.empty): Future[Seq[Entry]] =
     withConnection { connection =>
-      val results: Iterable[LdapEntry] = createSearchResult(ou, filter, attributes).getEntries.asScala
+      val results: Iterable[LdapEntry] = createSearchResult(dn, filter, attributes).getEntries.asScala
       results.toSeq.flatMap(fixLdapEntry)
     }
 
@@ -113,5 +123,7 @@ class Ldap(val settings: Settings = new Settings()) extends LazyLogging {
         Entry(Option(e.getDn), attributes)
       }
   }
+
+  private def appendBaseDn(dn: String): String = s"$dn,${settings.baseDomain}"
 
 }
