@@ -42,6 +42,34 @@ class Ldap(val settings: Settings = new Settings()) extends LazyLogging {
     }
   }
 
+  def addAttributes(dn: String, attributes: Map[String, String]): Future[Unit] = {
+    val attributesModification: Seq[AttributeModification] = attributes.map { case (name, value) =>
+      new AttributeModification(AttributeModificationType.ADD, new LdapAttribute(name, value))
+    }.toSeq
+
+    executeModifyOperation(dn, attributesModification)
+  }
+
+  def replaceAttributes(dn: String, attributes: Map[String, String]): Future[Unit] = {
+    val attributesModification: Seq[AttributeModification] = attributes.map { case (name, value) =>
+      new AttributeModification(AttributeModificationType.REPLACE, new LdapAttribute(name, value))
+    }.toSeq
+
+    executeModifyOperation(dn, attributesModification)
+  }
+
+  def removeAttributes(dn: String, attributes: Seq[String]): Future[Unit] = {
+    val attributesModification: Seq[AttributeModification] = attributes.map { attribute =>
+      new AttributeModification(AttributeModificationType.REMOVE, new LdapAttribute(attribute))
+    }
+
+    executeModifyOperation(dn, attributesModification)
+  }
+
+  private def executeModifyOperation(dn: String, attributes: Seq[AttributeModification]): Future[Unit] = withConnection {
+    connection => new ModifyOperation(connection).execute(new ModifyRequest(dn, attributes: _*))
+  }
+
   private def createSearchResult(ou: String, filter: String, attributes: Seq[String])(implicit connection: Connection) = {
     val request = new SearchRequest(s"$ou,$baseDomain", filter, attributes: _*)
     request.setDerefAliases(DerefAliases.valueOf(searchDereferenceAlias))
@@ -63,6 +91,7 @@ class Ldap(val settings: Settings = new Settings()) extends LazyLogging {
       val results: Iterable[LdapEntry] = createSearchResult(ou, filter, attributes).getEntries.asScala
       results.toSeq.flatMap(fixLdapEntry)
     }
+
 
   private def fixLdapEntry(entry: LdapEntry): Option[Entry] = {
     Option(entry)
