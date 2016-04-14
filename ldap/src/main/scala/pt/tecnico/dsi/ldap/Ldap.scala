@@ -6,6 +6,7 @@ import org.ldaptive._
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success, Try}
 
 class Ldap(private val settings: Settings = new Settings()) extends LazyLogging {
 
@@ -28,17 +29,15 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
   private def withConnection[R](f: Connection => R)(implicit ex: ExecutionContext): Future[R] = Future {
     connectionFactory.getConnection
   } flatMap { connection =>
-    try {
+    Try {
       if (!connection.isOpen) {
         connection.open()
       }
 
       Future(f(connection))
-    } catch {
-      case ex: LdapException => Future.failed(ex)
-      case ex: IllegalStateException => Future.failed(ex)
-    } finally {
-      connection.close()
+    } match {
+      case Success(result) => result
+      case Failure(exception) => Future.failed(exception)
     }
   }
 
@@ -111,23 +110,24 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
 
   private def fixLdapEntry(entry: LdapEntry): Option[Entry] = {
     Option(entry)
-      .filter(_.getAttributes != null)
-      .map { e =>
-        val attributes = e.getAttributes.asScala.map { attribute =>
-          val values = if (attribute.isBinary) {
-            attribute.getBinaryValues.asScala.map { value =>
-              Binary(value)
-            }.toSeq
-          } else {
-            attribute.getStringValues.asScala.map { value =>
-              Text(value)
-            }.toSeq
-          }
-          (attribute.getName, values)
-        }.toMap
+      .filter { e =>
+        Some(e.getAttributes).isDefined
+      }.map { e =>
+      val attributes = e.getAttributes.asScala.map { attribute =>
+        val values = if (attribute.isBinary) {
+          attribute.getBinaryValues.asScala.map { value =>
+            Binary(value)
+          }.toSeq
+        } else {
+          attribute.getStringValues.asScala.map { value =>
+            Text(value)
+          }.toSeq
+        }
+        (attribute.getName, values)
+      }.toMap
 
-        Entry(Option(e.getDn), attributes)
-      }
+      Entry(Option(e.getDn), attributes)
+    }
   }
 
   private def appendBaseDn(dn: String): String = s"$dn,$baseDomain"
