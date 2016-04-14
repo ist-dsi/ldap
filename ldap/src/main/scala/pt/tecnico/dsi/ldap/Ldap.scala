@@ -7,7 +7,7 @@ import org.ldaptive._
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 
-class Ldap(val settings: Settings = new Settings()) extends LazyLogging {
+class Ldap(private val settings: Settings = new Settings()) extends LazyLogging {
 
   import settings._
 
@@ -124,6 +124,6 @@ class Ldap(val settings: Settings = new Settings()) extends LazyLogging {
       }
   }
 
-  private def appendBaseDn(dn: String): String = s"$dn,${settings.baseDomain}"
+  private def appendBaseDn(dn: String): String = s"$dn,${baseDomain}"
 
 }
