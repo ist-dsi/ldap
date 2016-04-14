@@ -5,7 +5,7 @@ import org.ldaptive.pool._
 import org.ldaptive._
 
 import scala.collection.JavaConverters._
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 class Ldap(private val settings: Settings = new Settings()) extends LazyLogging {
 
@@ -25,9 +25,9 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     case _ => //Nothing to do
   }
 
-  private def withConnection[R](f: Connection => R): Future[R] = Future {
+  private def withConnection[R](f: Connection => R)(implicit ex: ExecutionContext): Future[R] = Future {
     connectionFactory.getConnection
-  }.flatMap { connection =>
+  } flatMap { connection =>
     try {
       if (!connection.isOpen) {
         connection.open()
@@ -35,13 +35,14 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
 
       Future(f(connection))
     } catch {
-      case ex: LdapException | IllegalStateException => Future.failed(ex)
+      case ex: LdapException => Future.failed(ex)
+      case ex: IllegalStateException => Future.failed(ex)
     } finally {
       connection.close()
     }
   }
 
-  def add(dn: String, attributes: Map[String, String]): Future[Unit] = withConnection { connection =>
+  def add(dn: String, attributes: Map[String, String])(implicit ex: ExecutionContext): Future[Unit] = withConnection { connection =>
     val ldapAttributes: Seq[LdapAttribute] = attributes.map { case (name, value) =>
       new LdapAttribute(name, value)
     }.toSeq
@@ -49,9 +50,10 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     new AddOperation(connection).execute(new AddRequest(appendBaseDn(dn), ldapAttributes.asJavaCollection))
   }
 
-  def delete(dn: String): Future[Unit] = withConnection(new DeleteOperation(_).execute(new DeleteRequest(dn)))
+  def delete(dn: String)(implicit ex: ExecutionContext): Future[Unit] =
+    withConnection(new DeleteOperation(_).execute(new DeleteRequest(dn)))
 
-  def addAttributes(dn: String, attributes: Map[String, String]): Future[Unit] = {
+  def addAttributes(dn: String, attributes: Map[String, String])(implicit ex: ExecutionContext): Future[Unit] = {
     val attributesModification: Seq[AttributeModification] = attributes.map { case (name, value) =>
       new AttributeModification(AttributeModificationType.ADD, new LdapAttribute(name, value))
     }.toSeq
@@ -59,7 +61,7 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     executeModifyOperation(dn, attributesModification)
   }
 
-  def replaceAttributes(dn: String, attributes: Map[String, String]): Future[Unit] = {
+  def replaceAttributes(dn: String, attributes: Map[String, String])(implicit ex: ExecutionContext): Future[Unit] = {
     val attributesModification: Seq[AttributeModification] = attributes.map { case (name, value) =>
       new AttributeModification(AttributeModificationType.REPLACE, new LdapAttribute(name, value))
     }.toSeq
@@ -67,7 +69,7 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     executeModifyOperation(dn, attributesModification)
   }
 
-  def removeAttributes(dn: String, attributes: Seq[String]): Future[Unit] = {
+  def removeAttributes(dn: String, attributes: Seq[String])(implicit ex: ExecutionContext): Future[Unit] = {
     val attributesModification: Seq[AttributeModification] = attributes.map { attribute =>
       new AttributeModification(AttributeModificationType.REMOVE, new LdapAttribute(attribute))
     }
@@ -75,12 +77,14 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     executeModifyOperation(dn, attributesModification)
   }
 
-  private def executeModifyOperation(dn: String, attributes: Seq[AttributeModification]): Future[Unit] =
+  private def executeModifyOperation(dn: String, attributes: Seq[AttributeModification])
+                                    (implicit ex: ExecutionContext): Future[Unit] =
     withConnection { connection =>
       new ModifyOperation(connection).execute(new ModifyRequest(appendBaseDn(dn), attributes: _*))
     }
 
-  private def createSearchResult(dn: String, filter: String, attributes: Seq[String])(implicit connection: Connection) = {
+  private def createSearchResult(dn: String, filter: String, attributes: Seq[String])
+                                (implicit connection: Connection) = {
     val request = new SearchRequest(appendBaseDn(dn), filter, attributes: _*)
     request.setDerefAliases(DerefAliases.valueOf(searchDereferenceAlias))
     request.setSearchScope(SearchScope.valueOf(searchScope))
@@ -90,14 +94,16 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     new SearchOperation(connection).execute(request).getResult
   }
 
-  def search(dn: String, filter: String, attributes: Seq[String] = Seq.empty): Future[Option[Entry]] =
-    withConnection { connection =>
+  def search(dn: String, filter: String, attributes: Seq[String] = Seq.empty)
+            (implicit ex: ExecutionContext): Future[Option[Entry]] =
+    withConnection { implicit connection =>
       val result: LdapEntry = createSearchResult(dn, filter, attributes).getEntry
       fixLdapEntry(result)
     }
 
-  def searchAll(dn: String, filter: String, attributes: Seq[String] = Seq.empty): Future[Seq[Entry]] =
-    withConnection { connection =>
+  def searchAll(dn: String, filter: String, attributes: Seq[String] = Seq.empty)
+               (implicit ex: ExecutionContext): Future[Seq[Entry]] =
+    withConnection { implicit connection =>
       val results: Iterable[LdapEntry] = createSearchResult(dn, filter, attributes).getEntries.asScala
       results.toSeq.flatMap(fixLdapEntry)
     }
@@ -124,6 +130,6 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
       }
   }
 
-  private def appendBaseDn(dn: String): String = s"$dn,${baseDomain}"
+  private def appendBaseDn(dn: String): String = s"$dn,$baseDomain"
 
 }
