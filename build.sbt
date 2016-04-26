@@ -2,25 +2,13 @@ organization := "pt.tecnico.dsi"
 name := "ldap"
 version := "0.0.1"
 
-scalaVersion := "2.11.7"
+scalaVersion := "2.11.8"
 initialize := {
   val required = "1.8"
   val current  = sys.props("java.specification.version")
   assert(current == required, s"Unsupported JDK: java.specification.version $current != $required")
 }
 javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint")
-
-libraryDependencies ++= Seq(
-  "org.ldaptive" % "ldaptive" % "1.1.0",
-  "org.ldaptive" % "ldaptive-unboundid" % "1.1.0",
-  //Logging
-  "com.typesafe.scala-logging" %% "scala-logging" % "3.4.0",
-  "ch.qos.logback" % "logback-classic" % "1.1.7",
-  //Testing
-  "org.scalatest" %% "scalatest" % "2.2.6" % "test",
-  //Configuration
-  "com.typesafe" % "config" % "1.3.0"
-)
 
 scalacOptions ++= Seq(
   "-deprecation",                   //Emit warning and location for usages of deprecated APIs.
@@ -34,6 +22,23 @@ scalacOptions ++= Seq(
   "-Yno-adapted-args",              //Do not adapt an argument list (either by inserting () or creating a tuple) to match the receiver.
   "-Ywarn-dead-code"                //Warn when dead code is identified.
 )
+
+libraryDependencies ++= Seq(
+  "org.ldaptive" % "ldaptive" % "1.1.0",
+  "org.ldaptive" % "ldaptive-unboundid" % "1.1.0",
+  //Logging
+  "com.typesafe.scala-logging" %% "scala-logging" % "3.4.0",
+  "ch.qos.logback" % "logback-classic" % "1.1.7",
+  //Testing
+  "org.scalatest" %% "scalatest" % "2.2.6" % "test",
+  //Configuration
+  "com.typesafe" % "config" % "1.3.0"
+)
+
+autoAPIMappings := true
+scalacOptions in (Compile,doc) ++= Seq("-groups", "-implicits", "-diagrams")
+
+coverageEnabled := true
 
 site.settings
 site.includeScaladoc()
