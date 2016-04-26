@@ -41,7 +41,7 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     }
   }
 
-  def add(dn: String, attributes: Map[String, String])(implicit ex: ExecutionContext): Future[Unit] = withConnection { connection =>
+  def addEntry(dn: String, attributes: Map[String, String])(implicit ex: ExecutionContext): Future[Unit] = withConnection { connection =>
     val ldapAttributes: Seq[LdapAttribute] = attributes.map { case (name, value) =>
       new LdapAttribute(name, value)
     }.toSeq
@@ -49,7 +49,7 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     new AddOperation(connection).execute(new AddRequest(appendBaseDn(dn), ldapAttributes.asJavaCollection))
   }
 
-  def delete(dn: String)(implicit ex: ExecutionContext): Future[Unit] =
+  def deleteEntry(dn: String)(implicit ex: ExecutionContext): Future[Unit] =
     withConnection(new DeleteOperation(_).execute(new DeleteRequest(dn)))
 
   def addAttributes(dn: String, attributes: Map[String, String])(implicit ex: ExecutionContext): Future[Unit] = {
