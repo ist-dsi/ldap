@@ -1,18 +1,11 @@
 package pt.tecnico.dsi.ldap
 
-case class Entry(dn: Option[String], private val attributes: Map[String, Seq[Value]]) {
-  def value(name: String): Option[Value#T] = attributes.get(name).flatMap(_.headOption).map(_.value)
-  def values(name: String): Seq[Value#T] = attributes.getOrElse(name, Seq.empty).map(_.value)
-}
+case class Entry(dn: Option[String], private val textAttributes: Map[String, Seq[String]],
+                 private val binaryAttributes: Map[String, Seq[Array[Byte]]]) {
+  def textValue(name: String): Option[String] = textAttributes.get(name).flatMap(_.headOption)
+  def binaryValue(name: String): Option[Array[Byte]] = binaryAttributes.get(name).flatMap(_.headOption)
 
-sealed trait Value {
-  type T //TODO put an awesome comment here bashing the lack of OOP in Ldaptive (this is the price to pay for using Ldaptive
-  def value: T
-}
+  def textValues(name: String): Seq[String] = textAttributes.getOrElse(name, Seq.empty)
+  def binaryValues(name: String): Seq[Array[Byte]] = binaryAttributes.getOrElse(name, Seq.empty)
 
-case class Binary(value: Array[Byte]) extends Value {
-  type T = Array[Byte]
-}
-case class Text(value: String) extends Value {
-  type T = String
 }

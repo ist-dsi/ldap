@@ -24,8 +24,14 @@ scalacOptions ++= Seq(
 )
 
 libraryDependencies ++= Seq(
+  //FIXME -> DELETE
+  "com.squants"  %% "squants"  % "0.6.2",
+
   "org.ldaptive" % "ldaptive" % "1.1.0",
   "org.ldaptive" % "ldaptive-unboundid" % "1.1.0",
+  "com.unboundid" % "unboundid-ldapsdk" % "3.1.1",
+  //AES Random Number Generator
+  "io.gatling.uncommons.maths" % "uncommons-maths" % "1.2.3", //the most recent version is not provided by uncommons.maths organization
   //Logging
   "com.typesafe.scala-logging" %% "scala-logging" % "3.4.0",
   "ch.qos.logback" % "logback-classic" % "1.1.7",
@@ -37,8 +43,6 @@ libraryDependencies ++= Seq(
 
 autoAPIMappings := true
 scalacOptions in (Compile,doc) ++= Seq("-groups", "-implicits", "-diagrams")
-
-coverageEnabled := true
 
 site.settings
 site.includeScaladoc()
