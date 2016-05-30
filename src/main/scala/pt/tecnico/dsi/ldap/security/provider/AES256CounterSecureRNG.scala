@@ -4,7 +4,7 @@
 package pt.tecnico.dsi.ldap.security.provider
 
 import org.uncommons.maths.random.{AESCounterRNG, SecureRandomSeedGenerator}
-import SeedSize.Seed256
+import SeedSize.seed256
 
 /**
   * INTERNAL API
@@ -14,9 +14,9 @@ import SeedSize.Seed256
   */
 class AES256CounterSecureRNG extends java.security.SecureRandomSpi {
   /** Singleton instance. */
-  private final val Instance: SecureRandomSeedGenerator = new SecureRandomSeedGenerator
+  private final val instance: SecureRandomSeedGenerator = new SecureRandomSeedGenerator
 
-  private val rng = new AESCounterRNG(engineGenerateSeed(Seed256))
+  private val rng = new AESCounterRNG(engineGenerateSeed(seed256))
 
   /**
     * This is managed internally by AESCounterRNG
@@ -38,5 +38,5 @@ class AES256CounterSecureRNG extends java.security.SecureRandomSpi {
     * @param numBytes the number of seed bytes to generate.
     * @return the seed bytes.
     */
-  override protected def engineGenerateSeed(numBytes: Int): Array[Byte] = Instance.generateSeed(numBytes)
+  override protected def engineGenerateSeed(numBytes: Int): Array[Byte] = instance.generateSeed(numBytes)
 }

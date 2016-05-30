@@ -12,7 +12,7 @@ package pt.tecnico.dsi.ldap.security.provider
   * INTERNAL API
   */
 private[provider] object SeedSize {
-  val Seed128 = 16
-  val Seed192 = 24
-  val Seed256 = 32
+  val seed128 = 16
+  val seed192 = 24
+  val seed256 = 32
 }

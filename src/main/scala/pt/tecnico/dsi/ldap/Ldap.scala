@@ -10,14 +10,12 @@ import scala.util.{Failure, Success, Try}
 
 class Ldap(private val settings: Settings = new Settings()) extends LazyLogging {
 
-  import settings._
-
-  private val connectionFactory: ConnectionFactory = if (enablePool) {
-    pool.initialize()
+  private val connectionFactory: ConnectionFactory = if (settings.enablePool) {
+    settings.pool.initialize()
     logger.debug("Connection pool initialized successfully")
-    pooledConnectionFactory
+    settings.pooledConnectionFactory
   } else {
-    defaultConnectionFactory
+    settings.defaultConnectionFactory
   }
 
   def close(): Unit = connectionFactory match {
@@ -101,15 +99,15 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
   private def createSearchResult(dn: String, filter: String, attributes: Seq[String], size: Int)
                                 (implicit connection: Connection) = {
     val request = new SearchRequest(appendBaseDn(dn), filter, attributes: _*)
-    request.setDerefAliases(DerefAliases.valueOf(searchDereferenceAlias))
-    request.setSearchScope(SearchScope.valueOf(searchScope))
+    request.setDerefAliases(DerefAliases.valueOf(settings.searchDereferenceAlias))
+    request.setSearchScope(SearchScope.valueOf(settings.searchScope))
     request.setSizeLimit(size)
-    request.setTimeLimit(searchTimeLimit)
+    request.setTimeLimit(settings.searchTimeLimit)
 
     new SearchOperation(connection).execute(request).getResult
   }
 
-  def search(dn: String, filter: String, returningAttributes: Seq[String] = Seq.empty, size: Int = searchSizeLimit)
+  def search(dn: String, filter: String, returningAttributes: Seq[String] = Seq.empty, size: Int = settings.searchSizeLimit)
             (implicit ex: ExecutionContext): Future[Seq[Entry]] = {
     withConnection { implicit connection =>
       logger.debug(s"Performing a search($size) for ${appendBaseDn(dn)}, with $filter and returning ${returningAttributes.mkString(", ")} attributes")
@@ -154,7 +152,7 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     ldapAttribute.getName -> ldapAttribute.getBinaryValues.asScala.toSeq
   }
 
-  private def appendBaseDn(dn: String): String = s"$dn,$baseDomain"
+  private def appendBaseDn(dn: String): String = s"$dn,${settings.baseDomain}"
 
   private def attributesToString(attributes: Map[String, String]): String = attributes.mkString("[ ", " ; ", " ]")
 

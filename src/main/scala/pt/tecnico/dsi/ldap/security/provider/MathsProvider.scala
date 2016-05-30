@@ -2,7 +2,6 @@ package pt.tecnico.dsi.ldap.security.provider
 
 import java.security.{PrivilegedAction, AccessController, Provider}
 
-
 /**
   * A provider that for AES128CounterRNGFast, a cryptographically secure random number generator through SecureRandom
   */
@@ -17,7 +16,7 @@ object MathsProvider extends Provider("UncommonsMath", 1.0, "uncommons.math prov
       //Implementation type: software or hardware
       put("SecureRandom.AES128CounterSecureRNG ImplementedIn", "Software")
       put("SecureRandom.AES256CounterSecureRNG ImplementedIn", "Software")
-      null //Magic null is magic
+      null //magic null is magic
     }
   })
 }
