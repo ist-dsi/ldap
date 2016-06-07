@@ -1,15 +1,15 @@
 package pt.tecnico.dsi.ldap
 
 import java.security.{KeyStore, SecureRandom}
-import java.util.concurrent.TimeUnit
+import java.time.Duration
 import javax.net.ssl.SSLContext
 
 import com.typesafe.config.{Config, ConfigFactory}
 import com.unboundid.util.ssl.{SSLUtil, TrustStoreTrustManager}
+import org.ldaptive._
 import org.ldaptive.pool._
 import org.ldaptive.provider.unboundid.{UnboundIDProvider, UnboundIDProviderConfig}
 import org.ldaptive.ssl.{KeyStoreCredentialConfig, SslConfig}
-import org.ldaptive._
 import pt.tecnico.dsi.ldap.security.provider.MathsProvider
 
 import scala.collection.JavaConverters._
@@ -33,16 +33,16 @@ class Settings(config: Config = ConfigFactory.load()) {
   val bindDN: String = ldapConfig.getString("bind-dn")
   val bindPassword: String = ldapConfig.getString("bind-password")
 
-  val connectionTimeout: Long = ldapConfig.getDuration("connection-timeout", TimeUnit.MILLISECONDS)
-  val responseTimeout: Long = ldapConfig.getDuration("response-timeout", TimeUnit.MILLISECONDS)
+  val connectionTimeout: Duration = ldapConfig.getDuration("connection-timeout")
+  val responseTimeout: Duration = ldapConfig.getDuration("response-timeout")
 
   val enablePool: Boolean = poolConfigs.getBoolean("enable-pool")
-  val blockWaitTime: Long = poolConfigs.getDuration("block-wait-time", TimeUnit.MILLISECONDS)
+  val blockWaitTime: Duration = poolConfigs.getDuration("block-wait-time")
   val minPoolSize: Int = poolConfigs.getInt("min-pool-size")
   val maxPoolSize: Int = poolConfigs.getInt("max-pool-size")
-  val validationPeriod: Long = poolConfigs.getDuration("validation-period", TimeUnit.SECONDS)
-  val prunePeriod: Long = poolConfigs.getDuration("prune-period", TimeUnit.SECONDS)
-  val pruneIdleTime: Long = poolConfigs.getDuration("prune-idle-time", TimeUnit.SECONDS)
+  val validationPeriod: Duration = poolConfigs.getDuration("validation-period")
+  val prunePeriod: Duration = poolConfigs.getDuration("prune-period")
+  val pruneIdleTime: Duration = poolConfigs.getDuration("prune-idle-time")
 
   val enableSSL: Boolean = sslConfigs.getBoolean("enable-ssl")
   val trustStore: String = sslConfigs.getString("trust-store")
@@ -54,8 +54,8 @@ class Settings(config: Config = ConfigFactory.load()) {
   private val credential: Credential = new Credential(bindPassword)
 
   val connectionConfig = new ConnectionConfig(host)
-  connectionConfig.setConnectTimeout(connectionTimeout)
-  connectionConfig.setResponseTimeout(responseTimeout)
+  connectionConfig.setConnectTimeout(connectionTimeout.toMillis)
+  connectionConfig.setResponseTimeout(responseTimeout.toMillis)
   connectionConfig.setUseStartTLS(false)
   connectionConfig.setUseSSL(enableSSL)
   connectionConfig.setConnectionInitializer(new BindConnectionInitializer(bindDN, credential))
@@ -105,12 +105,13 @@ class Settings(config: Config = ConfigFactory.load()) {
   poolConfig.setMinPoolSize(minPoolSize)
   poolConfig.setMaxPoolSize(maxPoolSize)
   poolConfig.setValidatePeriodically(true)
-  poolConfig.setValidatePeriod(validationPeriod)
+  poolConfig.setValidatePeriod(validationPeriod.getSeconds)
 
   //TODO Say on documentations that if one wants to use a non blocking connection pool to extend this class an override
   //     the proper val
   val pool = new BlockingConnectionPool()
-  pool.setBlockWaitTime(blockWaitTime)
+//  val pool = new SoftLimitConnectionPool()
+  pool.setBlockWaitTime(blockWaitTime.toMillis)
   pool.setConnectionFactory(defaultConnectionFactory)
   pool.setFailFastInitialize(true)
   //Before connections are checked back into the pool a bind request will be made.
@@ -121,12 +122,12 @@ class Settings(config: Config = ConfigFactory.load()) {
   //Connections that fail validation are evicted from the pool.
   pool.setValidator(new SearchValidator())
   //Prunes connections from the pool based on how long they have been idle.
-  pool.setPruneStrategy(new IdlePruneStrategy(prunePeriod, pruneIdleTime))
+  pool.setPruneStrategy(new IdlePruneStrategy(prunePeriod.getSeconds, pruneIdleTime.getSeconds))
 
   val pooledConnectionFactory: PooledConnectionFactory = new PooledConnectionFactory(pool)
 
   val searchDereferenceAlias: String = searchConfigs.getString("dereference-alias")
   val searchScope: String = searchConfigs.getString("scope")
   val searchSizeLimit: Int = searchConfigs.getInt("size-limit")
-  val searchTimeLimit: Long = searchConfigs.getDuration("time-limit", TimeUnit.MILLISECONDS)
+  val searchTimeLimit: Duration = searchConfigs.getDuration("time-limit")
 }
