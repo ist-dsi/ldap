@@ -24,6 +24,9 @@ scalacOptions ++= Seq(
 )
 
 libraryDependencies ++= Seq(
+  // Actors
+  "com.typesafe.akka" %% "akka-actor" % "2.4.7",
+  //Ldap
   "org.ldaptive" % "ldaptive" % "1.1.0",
   "org.ldaptive" % "ldaptive-unboundid" % "1.1.0",
   "com.unboundid" % "unboundid-ldapsdk" % "3.1.1",
