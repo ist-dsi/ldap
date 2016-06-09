@@ -17,6 +17,14 @@ before_cache:
   - find $HOME/.ivy2 -name "ivydata-*.properties" -delete
   - find $HOME/.sbt -name "*.lock" -delete
 
+
+before_install:
+  - sudo apt-get -qq update
+  - sudo apt-get install -y vagrant
+
+before_script:
+  - vagrant up --provider=docker
+
 after_script:
   - sbt coverage test
   - sbt coverageReport
