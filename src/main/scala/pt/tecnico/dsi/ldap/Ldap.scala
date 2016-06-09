@@ -142,7 +142,6 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
 
   private def addOperationHandler[R <: Request, S](operation: AbstractOperation[R,S]): Unit = {
     val handler = new operation.ReopenOperationExceptionHandler()
-    handler.setRetry(5)
 
     operation.setOperationExceptionHandler(handler)
   }
