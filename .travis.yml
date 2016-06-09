@@ -1,24 +1,27 @@
-sudo: false
 language: scala
+scala: 2.11.8
+jdk: oraclejdk8
 
 cache:
   directories:
     - "$HOME/.ivy2/cache"
     - "$HOME/.sbt/boot/"
 
-scala:
-  - 2.11.7
+cache:
+  directories:
+    - $HOME/.ivy2/cache
+    - $HOME/.sbt/boot/
 
-jdk:
-  - oraclejdk8
+before_cache:
+  # Tricks to avoid unnecessary cache updates
+  - find $HOME/.ivy2 -name "ivydata-*.properties" -delete
+  - find $HOME/.sbt -name "*.lock" -delete
 
-env:
-  - TEST_DIR=ldap
-
-script:
-  - cd $TEST_DIR && sbt ++$TRAVIS_SCALA_VERSION test
-  - find $HOME/.sbt -name "*.lock" | xargs rm
-  - find $HOME/.ivy2 -name "ivydata-*.properties" | xargs rm
+after_script:
+  - sbt coverage test
+  - sbt coverageReport
+  - sbt coverageAggregate
+  - sbt codacyCoverage
 
 notifications:
   slack:
