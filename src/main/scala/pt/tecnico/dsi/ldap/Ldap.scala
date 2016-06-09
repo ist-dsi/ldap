@@ -61,14 +61,14 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     }.toSeq
 
     val operation = new AddOperation(connection)
-    addOperationHandler(operation)
+//    addOperationHandler(operation)
     operation.execute(new AddRequest(appendBaseDn(dn), ldapAttributes.asJavaCollection))
   }
 
   def deleteEntry(dn: String)(implicit ex: ExecutionContext): Future[Unit] = withConnection { connection =>
     logger.info(s"Deleting entry ${appendBaseDn(dn)}")
     val operation = new DeleteOperation(connection)
-    addOperationHandler(operation)
+//    addOperationHandler(operation)
     operation.execute(new DeleteRequest(appendBaseDn(dn)))
   }
 
@@ -103,7 +103,7 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     withConnection { connection =>
       logger.info(logMessage)
       val operation = new ModifyOperation(connection)
-      addOperationHandler(operation)
+//      addOperationHandler(operation)
       operation.execute(new ModifyRequest(appendBaseDn(dn), attributes: _*))
     }
   }
@@ -117,7 +117,7 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     request.setTimeLimit(settings.searchTimeLimit.toMillis)
 
     val operation: SearchOperation = new SearchOperation(connection)
-    addOperationHandler(operation)
+//    addOperationHandler(operation)
     operation.execute(request).getResult
   }
 
@@ -140,11 +140,12 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     search(dn, filter, returningAttributes, 0)
   }
 
-  private def addOperationHandler[R <: Request, S](operation: AbstractOperation[R,S]): Unit = {
-    val handler = new operation.ReopenOperationExceptionHandler()
-
-    operation.setOperationExceptionHandler(handler)
-  }
+//  private def addOperationHandler[R <: Request, S](operation: AbstractOperation[R,S]): Unit = {
+//    val handler = new operation.ReopenOperationExceptionHandler()
+//    handler.setRetry(5)
+//
+//    operation.setOperationExceptionHandler(handler)
+//  }
 
   private def fixLdapEntry(entry: LdapEntry): Option[Entry] = {
     Option(entry).filter {
