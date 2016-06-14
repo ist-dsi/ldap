@@ -4,11 +4,6 @@ jdk: oraclejdk8
 
 services:
   - docker
-  
-addons:
-  apt:
-    packages:
-      - vagrant
 
 cache:
   directories:
@@ -21,7 +16,8 @@ before_cache:
   - find $HOME/.sbt -name "*.lock" -delete
 
 before_script:
-  - docker ps -a
+  - curl -L https://releases.hashicorp.com/vagrant/1.8.1/vagrant_1.8.1_x86_64.deb > vagrant.deb
+  - dpkg --force-confnew -i vagrant.deb
   - vagrant up --provider=docker
 
 after_script:
