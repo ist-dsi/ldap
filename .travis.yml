@@ -4,27 +4,22 @@ language: scala
 scala: 2.11.8
 jdk: oraclejdk8
 
+services:
+  - docker
+
 cache:
   directories:
     - "$HOME/.ivy2/cache"
     - "$HOME/.sbt/boot/"
-
-cache:
-  directories:
-    - $HOME/.ivy2/cache
-    - $HOME/.sbt/boot/
 
 before_cache:
   # Tricks to avoid unnecessary cache updates
   - find $HOME/.ivy2 -name "ivydata-*.properties" -delete
   - find $HOME/.sbt -name "*.lock" -delete
 
-
-before_install:
-  - sudo apt-get -qq update
-  - sudo apt-get install -y vagrant
-
 before_script:
+  - curl -L https://releases.hashicorp.com/vagrant/1.8.1/vagrant_1.8.1_x86_64.deb > vagrant.deb
+  - sudo dpkg --force-confnew -i vagrant.deb
   - vagrant up --provider=docker
 
 after_script:
