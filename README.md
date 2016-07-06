@@ -8,7 +8,7 @@
 [![Scaladoc](http://javadoc-badge.appspot.com/pt.tecnico.dsi/ldap_2.11.svg?label=scaladoc&style=plastic&maxAge=604800)](https://ist-dsi.github.io/ldap/latest/api/#pt.tecnico.dsi.ldap.package)
 [![license](http://img.shields.io/:license-MIT-blue.svg)](LICENSE)
 
-`ldap` is a scala wrapper around [`ldaptive` library](http://www.ldaptive.org).
+`ldap` provides an API to interact with Lightweight Directory Access Protocol (LDAP) servers for Scala developers. This project is built around [`ldaptive`](http://www.ldaptive.org) and [`UnboundID`](http://unboundid.com/).
 
 [Latest scaladoc documentation](http://ist-dsi.github.io/ldap/latest/api/).
 
