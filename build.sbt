@@ -1,16 +1,22 @@
 organization := "pt.tecnico.dsi"
 name := "ldap"
-version := "0.0.1"
+
+val javaVersion = "1.8"
+initialize := {
+  val current  = sys.props("java.specification.version")
+  assert(current == javaVersion, s"Unsupported JDK: expected JDK $javaVersion installed, but instead got JDK $current.")
+}
+javacOptions ++= Seq(
+  "-source", javaVersion,
+  "-target", javaVersion,
+  "-Xlint",
+  "-encoding", "UTF-8",
+  "-Dfile.encoding=utf-8"
+)
 
 scalaVersion := "2.11.8"
-initialize := {
-  val required = "1.8"
-  val current  = sys.props("java.specification.version")
-  assert(current == required, s"Unsupported JDK: java.specification.version $current != $required")
-}
-javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint")
-
 scalacOptions ++= Seq(
+  "-target:jvm-1.8",
   "-deprecation",                   //Emit warning and location for usages of deprecated APIs.
   "-encoding", "UTF-8",             //Use UTF-8 encoding. Should be default.
   "-feature",                       //Emit warning and location for usages of features that should be imported explicitly.
@@ -43,6 +49,8 @@ libraryDependencies ++= Seq(
 
 resolvers += Resolver.mavenLocal
 
+shellPrompt := { s => Project.extract(s).currentProject.id + " > " }
+
 autoAPIMappings := true
 scalacOptions in (Compile,doc) ++= Seq("-groups", "-implicits", "-diagrams")
 
@@ -53,11 +61,12 @@ git.remoteRepo := s"git@github.com:ist-dsi/${name.value}.git"
 
 licenses += "MIT" -> url("http://opensource.org/licenses/MIT")
 homepage := Some(url(s"https://github.com/ist-dsi/${name.value}"))
-scmInfo := Some(ScmInfo(homepage.value.get, s"git@github.com:ist-dsi/${name.value}.git"))
+scmInfo := Some(ScmInfo(homepage.value.get, git.remoteRepo.value))
 
 publishMavenStyle := true
 publishTo := Some(if (isSnapshot.value) Opts.resolver.sonatypeSnapshots else Opts.resolver.sonatypeStaging)
 publishArtifact in Test := false
+sonatypeProfileName := organization.value
 
 pomIncludeRepository := { _ => false }
 pomExtra :=
@@ -68,3 +77,18 @@ pomExtra :=
       <url>https://github.com/magicknot</url>
     </developer>
   </developers>
+
+import ReleaseTransformations._
+releaseProcess := Seq[ReleaseStep](
+  checkSnapshotDependencies,
+  inquireVersions,
+  runClean,
+  ReleaseStep(action = Command.process("doc", _)),
+  setReleaseVersion,
+  tagRelease,
+  ReleaseStep(action = Command.process("ghpagesPushSite", _)),
+  ReleaseStep(action = Command.process("publishSigned", _)),
+  ReleaseStep(action = Command.process("sonatypeRelease", _)),
+  pushChanges,
+  setNextVersion
+)
