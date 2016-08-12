@@ -1,0 +1,103 @@
+package pt.tecnico.dsi.ldap
+
+import org.ldaptive.LdapException
+
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
+
+class AddSpec extends UnitSpec {
+
+  private val repetitions: Int = 3
+  private val doe = "Doe"
+
+  "addEntry" should "add entry successfully " in {
+    val janeDoe: String = "Jane Doe"
+    val number: String = "960000000"
+
+    val assert = simpleLdap.addEntry(s"$cn=$janeDoe", Map(cn -> Seq(janeDoe), sn -> Seq(doe), telephoneNumber -> Seq(number),
+      objectClass -> Seq(person))).flatMap { _ =>
+      simpleLdap.search(s"$cn=$janeDoe", s"$cn=$janeDoe", size = 1).map { result =>
+        val entry = result.head
+
+        entry.textValue(cn).value shouldBe janeDoe
+        entry.textValue(sn).value shouldBe doe
+        entry.textValue(telephoneNumber).value shouldBe number
+      }
+    }
+
+    assert.onComplete { _ =>
+      simpleLdap.deleteEntry(s"$cn=$janeDoe")
+    }
+
+    assert
+  }
+
+  it should "not fail when adding an already existing entry" in {
+    val johnDoe = "John Doe"
+    val number = "210000000"
+
+    val assert = Future.sequence {
+      (1 to repetitions).map { _ =>
+        simpleLdap.addEntry(s"$cn=$johnDoe", Map(cn -> Seq(johnDoe), sn -> Seq(doe),
+          telephoneNumber -> Seq(number), objectClass -> Seq(person)))
+      }
+    }.flatMap { _ =>
+      simpleLdap.search(s"$cn=$johnDoe", s"$cn=$johnDoe", size = 1).map { result =>
+        val entry = result.head
+        entry.textValue(cn) shouldBe Some(johnDoe)
+        entry.textValue(sn) shouldBe Some(doe)
+        entry.textValue(telephoneNumber) shouldBe Some(number)
+      }
+    }
+
+    assert.onComplete { _ =>
+      simpleLdap.deleteEntry(s"$cn=$johnDoe")
+    }
+
+    assert
+  }
+
+  it should "add new attributes" in {
+    val anthonyDoe = "Anthony Doe"
+    val number = "210000000"
+    val description: String = "description"
+    val descriptionValue: String = "Found in US"
+
+    val assert = {
+      simpleLdap.addEntry(s"$cn=$anthonyDoe", Map(cn -> Seq(anthonyDoe), sn -> Seq(doe),
+        telephoneNumber -> Seq(number), description -> Seq(descriptionValue), objectClass -> Seq(person)))
+    }.flatMap { _ =>
+      simpleLdap.search(s"$cn=$anthonyDoe", s"$cn=$anthonyDoe", size = 1).map { result =>
+        val entry = result.head
+
+        entry.textValue(cn) shouldBe Some(anthonyDoe)
+        entry.textValue(sn) shouldBe Some(doe)
+        entry.textValue(telephoneNumber) shouldBe Some(number)
+        entry.textValue(description) shouldBe Some(descriptionValue)
+      }
+    }
+
+    assert.onComplete { _ =>
+      simpleLdap.deleteEntry(s"cn=$anthonyDoe")
+    }
+
+    assert
+  }
+
+  it should "fail when adding an empty entry" in {
+    val ferdinandDoe = "Ferdinand Doe"
+    recoverToSucceededIf[LdapException] {
+      simpleLdap.addEntry(s"$cn=$ferdinandDoe")
+    }
+  }
+
+  it should "fail when adding and entry without all required attributes" in {
+    val samDoe = "Samuel Doe"
+    recoverToSucceededIf[LdapException] {
+      simpleLdap.addEntry(s"$cn=$samDoe", Map(cn -> Seq(samDoe)))
+    }
+  }
+
+  // TODO multivalue attribute (((ter um valor repetido, ter mais valores, ter menos valores)
+
+}

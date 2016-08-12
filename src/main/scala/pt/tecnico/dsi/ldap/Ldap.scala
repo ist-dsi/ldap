@@ -4,6 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.ldaptive.pool._
 import org.ldaptive._
 
+import java.util.{Iterator => JIterator}
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -27,10 +28,10 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
 
   private def logAvailableConnectionsInPool: String = connectionFactory match {
     case cf: PooledConnectionFactory => s"${cf.getConnectionPool.availableCount()} connections available"
-    case _ => ""//Nothing to do
+    case _ => "" //Nothing to do
   }
 
-  private def withConnection[R](f: Connection => R)(implicit ex: ExecutionContext): Future[R] = Future {
+  private def withConnection[R](f: Connection => Future[R])(implicit ex: ExecutionContext): Future[R] = Future {
     logger.debug(s"${logAvailableConnectionsInPool}Obtaining connection")
     connectionFactory.getConnection
   } flatMap { connection =>
@@ -40,7 +41,7 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
         connection.open()
       }
 
-      val result = Future(f(connection))
+      val result = f(connection)
 
       result.onComplete { _ =>
         connection.close()
@@ -54,42 +55,69 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     }
   }
 
-  def addEntry(dn: String, attributes: Map[String, String])(implicit ex: ExecutionContext): Future[Unit] = withConnection { connection =>
-    logger.info(s"Adding ${appendBaseDn(dn)} with ${attributesToString(attributes)}")
-    val ldapAttributes: Seq[LdapAttribute] = attributes.map { case (name, value) =>
-      new LdapAttribute(name, value)
-    }.toSeq
+  /**
+    * Add a new entry to Ldap, using a connection. If an equal entry already exists, nothing is done. Otherwise, the
+    * entry is updated with the new values.
+    *
+    * @param dn               the entry identifier. `base-dn` is appended in the end
+    * @param textAttributes   the entry's text attributes
+    * @param binaryAttributes the entry's binary attributes
+    * @param ex               the execution context where the `Future` will be executed
+    * @return a `Future` wrapping the add operation
+    */
+  def addEntry(dn: String = "", textAttributes: Map[String, Seq[String]] = Map.empty,
+               binaryAttributes: Map[String, Seq[Array[Byte]]] = Map.empty)
+              (implicit ex: ExecutionContext): Future[Unit] = {
 
-    val operation = new AddOperation(connection)
-//    addOperationHandler(operation)
-    operation.execute(new AddRequest(appendBaseDn(dn), ldapAttributes.asJavaCollection))
+    //Convert the attributes to a sequence of LdapAttribute
+    val ldapAttributes = textToLdapAttribute(textAttributes) ++ bytesToLdapAttribute(binaryAttributes)
+
+    withConnection { connection =>
+      logger.info(s"Adding ${appendBaseDn(dn)}")
+
+      val operation = new AddOperation(connection)
+      //    addOperationHandler(operation)
+
+      Future[Unit] {
+        operation.execute(new AddRequest(appendBaseDn(dn), ldapAttributes.asJavaCollection))
+      }.recoverWith {
+        case ldapException: LdapException if ldapException.getResultCode == ResultCode.ENTRY_ALREADY_EXISTS =>
+          search(dn, "(objectClass=*)").flatMap(_ => replaceAttributes(dn, textAttributes, binaryAttributes))
+      }
+    }
   }
 
-  def deleteEntry(dn: String)(implicit ex: ExecutionContext): Future[Unit] = withConnection { connection =>
+  def deleteEntry(dn: String = "")(implicit ex: ExecutionContext): Future[Unit] = withConnection { connection =>
     logger.info(s"Deleting entry ${appendBaseDn(dn)}")
     val operation = new DeleteOperation(connection)
-//    addOperationHandler(operation)
-    operation.execute(new DeleteRequest(appendBaseDn(dn)))
+    //    addOperationHandler(operation)
+    Future {
+      operation.execute(new DeleteRequest(appendBaseDn(dn)))
+    }
   }
 
+  def addAttributes(dn: String = "", textAttributes: Map[String, Seq[String]] = Map.empty,
+                    binaryAttributes: Map[String, Seq[Array[Byte]]] = Map.empty)(implicit ex: ExecutionContext): Future[Unit] = {
+    val attributes = textToLdapAttribute(textAttributes) ++ bytesToLdapAttribute(binaryAttributes)
 
-  def addAttributes(dn: String, attributes: Map[String, String])(implicit ex: ExecutionContext): Future[Unit] = {
-    val attributesModification: Seq[AttributeModification] = attributes.map { case (name, value) =>
-      new AttributeModification(AttributeModificationType.ADD, new LdapAttribute(name, value))
-    }.toSeq
+    val attributesModification: Seq[AttributeModification] = attributes.map { attribute =>
+      new AttributeModification(AttributeModificationType.ADD, attribute)
+    }
 
-    executeModifyOperation(dn, attributesModification)(s"Adding a ${attributesToString(attributes)} attributes for ${appendBaseDn(dn)}")
+    executeModifyOperation(dn, attributesModification)(s"Adding attributes for ${appendBaseDn(dn)}")
   }
 
-  def replaceAttributes(dn: String, attributes: Map[String, String])(implicit ex: ExecutionContext): Future[Unit] = {
-    val attributesModification: Seq[AttributeModification] = attributes.map { case (name, value) =>
-      new AttributeModification(AttributeModificationType.REPLACE, new LdapAttribute(name, value))
-    }.toSeq
+  def replaceAttributes(dn: String = "", textAttributes: Map[String, Seq[String]],
+                        binaryAttributes: Map[String, Seq[Array[Byte]]])(implicit ex: ExecutionContext): Future[Unit] = {
+    val attributes = textToLdapAttribute(textAttributes) ++ bytesToLdapAttribute(binaryAttributes)
+    val attributesModification: Seq[AttributeModification] = attributes.map { attribute =>
+      new AttributeModification(AttributeModificationType.REPLACE, attribute)
+    }
 
-    executeModifyOperation(dn, attributesModification)(s"Replacing ${attributesToString(attributes)} attributes for ${appendBaseDn(dn)}")
+    executeModifyOperation(dn, attributesModification)(s"Replacing attributes for ${appendBaseDn(dn)}")
   }
 
-  def removeAttributes(dn: String, attributes: Seq[String])(implicit ex: ExecutionContext): Future[Unit] = {
+  def removeAttributes(dn: String = "", attributes: Seq[String])(implicit ex: ExecutionContext): Future[Unit] = {
     val attributesModification: Seq[AttributeModification] = attributes.map { attribute =>
       new AttributeModification(AttributeModificationType.REMOVE, new LdapAttribute(attribute))
     }
@@ -97,19 +125,19 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     executeModifyOperation(dn, attributesModification)(s"Removing ${attributes.mkString(", ")} attributes for ${appendBaseDn(dn)}")
   }
 
-  private def executeModifyOperation(dn: String, attributes: Seq[AttributeModification])
+  private def executeModifyOperation(dn: String = "", attributes: Seq[AttributeModification])
                                     (logMessage: String)
-                                    (implicit ex: ExecutionContext): Future[Unit] = {
-    withConnection { connection =>
-      logger.info(logMessage)
-      val operation = new ModifyOperation(connection)
-//      addOperationHandler(operation)
+                                    (implicit ex: ExecutionContext): Future[Unit] = withConnection { connection =>
+    logger.info(logMessage)
+    val operation = new ModifyOperation(connection)
+    //      addOperationHandler(operation)
+    Future {
       operation.execute(new ModifyRequest(appendBaseDn(dn), attributes: _*))
     }
   }
 
-  private def createSearchResult(dn: String, filter: String, attributes: Seq[String], size: Int)
-                                (implicit connection: Connection) = {
+  private def createSearchResult(dn: String = "", filter: String, attributes: Seq[String], size: Int)
+                                (implicit connection: Connection, ex: ExecutionContext): Future[SearchResult] = {
     val request = new SearchRequest(appendBaseDn(dn), filter, attributes: _*)
     request.setDerefAliases(DerefAliases.valueOf(settings.searchDereferenceAlias))
     request.setSearchScope(SearchScope.valueOf(settings.searchScope))
@@ -117,35 +145,40 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     request.setTimeLimit(settings.searchTimeLimit.toMillis)
 
     val operation: SearchOperation = new SearchOperation(connection)
-//    addOperationHandler(operation)
-    operation.execute(request).getResult
+    //    addOperationHandler(operation)
+    Future {
+      operation.execute(request).getResult
+    }
   }
 
-  def search(dn: String, filter: String, returningAttributes: Seq[String] = Seq.empty, size: Int = settings.searchSizeLimit)
+  def search(dn: String = "", filter: String, returningAttributes: Seq[String] = Seq.empty, size: Int = settings.searchSizeLimit)
             (implicit ex: ExecutionContext): Future[Seq[Entry]] = {
+    assert(size > -1, "The number of results expected should be a non-negative integer.")
+    assert(filter.nonEmpty, "Filter cannot be empty.")
     withConnection { implicit connection =>
       logger.info(s"Performing a search($size) for ${appendBaseDn(dn)}, with $filter and returning ${returningAttributes.mkString(", ")} attributes")
-      val result: SearchResult = createSearchResult(dn, filter, returningAttributes, size)
 
-      if (size == 1) {
-        fixLdapEntry(result.getEntry).toSeq
-      } else {
-        result.getEntries.asScala.toSeq.flatMap(fixLdapEntry)
+      createSearchResult(dn, filter, returningAttributes, size).map { result =>
+        if (size == 1) {
+          fixLdapEntry(result.getEntry).toSeq
+        } else {
+          iteratorToSeq(result.getEntries.iterator)(fixLdapEntry).flatten
+        }
       }
     }
   }
 
-  def searchAll(dn: String, filter: String, returningAttributes: Seq[String] = Seq.empty)
+  def searchAll(dn: String = "", filter: String, returningAttributes: Seq[String] = Seq.empty)
                (implicit ex: ExecutionContext): Future[Seq[Entry]] = {
     search(dn, filter, returningAttributes, 0)
   }
 
-//  private def addOperationHandler[R <: Request, S](operation: AbstractOperation[R,S]): Unit = {
-//    val handler = new operation.ReopenOperationExceptionHandler()
-//    handler.setRetry(5)
-//
-//    operation.setOperationExceptionHandler(handler)
-//  }
+  //  private def addOperationHandler[R <: Request, S](operation: AbstractOperation[R,S]): Unit = {
+  //    val handler = new operation.ReopenOperationExceptionHandler()
+  //    handler.setRetry(5)
+  //
+  //    operation.setOperationExceptionHandler(handler)
+  //  }
 
   private def fixLdapEntry(entry: LdapEntry): Option[Entry] = {
     Option(entry).filter {
@@ -155,26 +188,62 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
   }
 
   private def fixLdapAttribute(e: LdapEntry): Entry = {
-    val (binaryAttributes, textAttributes) = e.getAttributes.asScala.partition(_.isBinary)
+    val (binaryAttributes, textAttributes) = partitionAttributes(e.getAttributes.iterator())(_.isBinary)
     val dn = Option(e.getDn)
-    val mappedTextAttributes = textAttributes.map(toLdapStringAttribute).toMap
-    val mappedBinaryAttributes = binaryAttributes.map(toLdapBinaryAttribute).toMap
+
+    val mappedTextAttributes: Map[String, Seq[String]] = textAttributes.map { attribute =>
+      attribute.getName -> iteratorToSeq(attribute.getStringValues.iterator)(identity)
+    }.toMap
+
+    val mappedBinaryAttributes: Map[String, Seq[Array[Byte]]] = binaryAttributes.map { attribute =>
+      attribute.getName -> iteratorToSeq(attribute.getBinaryValues.iterator)(identity)
+    }.toMap
 
     Entry(dn, mappedTextAttributes, mappedBinaryAttributes)
   }
 
-  private def toLdapStringAttribute(ldapAttribute: LdapAttribute): (String, Seq[String]) = {
-    require(!ldapAttribute.isBinary)
-    ldapAttribute.getName -> ldapAttribute.getStringValues.asScala.toSeq
+  private def partitionAttributes(attributes: JIterator[LdapAttribute])
+                                 (f: LdapAttribute => Boolean): (Seq[LdapAttribute], Seq[LdapAttribute]) = {
+    var matches = Seq.empty[LdapAttribute]
+    var nonMatches = Seq.empty[LdapAttribute]
+
+    while (attributes.hasNext) {
+      val element = attributes.next
+      if (f(element)) {
+        matches :+= element
+      } else {
+        nonMatches :+= element
+      }
+    }
+    (matches, nonMatches)
   }
 
-  private def toLdapBinaryAttribute(ldapAttribute: LdapAttribute): (String, Seq[Array[Byte]]) = {
-    require(ldapAttribute.isBinary)
-    ldapAttribute.getName -> ldapAttribute.getBinaryValues.asScala.toSeq
+  private def iteratorToSeq[T, U](iterator: JIterator[T])(map: T => U): Seq[U] = {
+    var ele = Seq.empty[U]
+    while (iterator.hasNext) {
+      ele :+= map(iterator.next)
+    }
+    ele
   }
 
-  private def appendBaseDn(dn: String): String = s"$dn,${settings.baseDomain}"
+  private def appendBaseDn(dn: String = ""): String = if(dn.nonEmpty) {
+    s"$dn,${settings.baseDomain}"
+  } else {
+    settings.baseDomain
+  }
 
-  private def attributesToString(attributes: Map[String, String]): String = attributes.mkString("[ ", " ; ", " ]")
+  private def textToLdapAttribute(attributes: Map[String, Seq[String]]): Seq[LdapAttribute] =
+    attributes.map {
+      case (name, values) =>
+        new LdapAttribute(name, values: _*)
+    }.toSeq
+
+  def bytesToLdapAttribute(attributes: Map[String, Seq[Array[Byte]]]): Seq[LdapAttribute] =
+    attributes.map {
+      case (name, values) =>
+        new LdapAttribute(name, values: _*)
+    }.toSeq
+
+  //  private def attributesToString(attributes: Map[String, String]): String = attributes.mkString("[ ", " ; ", " ]")
 
 }
