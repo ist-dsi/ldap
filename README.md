@@ -1,6 +1,6 @@
 # LDAP
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/pt.tecnico.dsi/ldap_2.11/badge.svg?maxAge=604800)](https://maven-badges.herokuapp.com/maven-central/pt.tecnico.dsi/ldap_2.11)
-[![Dependency Status](https://www.versioneye.com/java/pt.tecnico.dsi:ldap_2.11/badge.svg?style=plastic&maxAge=604800)](https://www.versioneye.com/java/pt.tecnico.dsi:ldap_2.11)
+[![Dependency Status](https://www.versioneye.com/java/pt.tecnico.dsi:ldap_2.11/badge.svg?style=flat-square&maxAge=604800)](https://www.versioneye.com/java/pt.tecnico.dsi:ldap_2.11)
 [![Reference Status](https://www.versioneye.com/java/pt.tecnico.dsi:ldap_2.11/reference_badge.svg?style=plastic&maxAge=604800)](https://www.versioneye.com/java/pt.tecnico.dsi:ldap_2.11/references)
 [![Build Status](https://travis-ci.org/ist-dsi/ldap.svg?branch=master&style=plastic&maxAge=604800)](https://travis-ci.org/ist-dsi/ldap)
 [![Codacy Badge](https://api.codacy.com/project/badge/Coverage/89fa5981298d49e09553b7b41f1ef74e)](https://www.codacy.com/app/IST-DSI/ldap?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=ist-dsi/ldap&amp;utm_campaign=Badge_Coverage)
