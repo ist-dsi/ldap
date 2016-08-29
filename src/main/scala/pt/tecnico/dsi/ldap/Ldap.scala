@@ -69,7 +69,9 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
               (implicit ex: ExecutionContext): Future[Unit] = {
 
     //Convert the attributes to a sequence of LdapAttribute
-    val ldapAttributes = textToLdapAttribute(textAttributes) ++ bytesToLdapAttribute(binaryAttributes)
+//    val ldapAttributes = textToLdapAttribute(textAttributes) ++ bytesToLdapAttribute(binaryAttributes)
+
+    val ldapAttributes = toLdapAttributes(textAttributes, binaryAttributes)
 
     withConnection { connection =>
       logger.info(s"Adding ${appendBaseDn(dn)}")
@@ -97,7 +99,7 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
 
   def addAttributes(dn: String = "", textAttributes: Map[String, Seq[String]] = Map.empty,
                     binaryAttributes: Map[String, Seq[Array[Byte]]] = Map.empty)(implicit ex: ExecutionContext): Future[Unit] = {
-    val attributes = textToLdapAttribute(textAttributes) ++ bytesToLdapAttribute(binaryAttributes)
+    val attributes = toLdapAttributes(textAttributes, binaryAttributes)
 
     val attributesModification: Seq[AttributeModification] = attributes.map { attribute =>
       new AttributeModification(AttributeModificationType.ADD, attribute)
@@ -108,7 +110,7 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
 
   def replaceAttributes(dn: String = "", textAttributes: Map[String, Seq[String]],
                         binaryAttributes: Map[String, Seq[Array[Byte]]])(implicit ex: ExecutionContext): Future[Unit] = {
-    val attributes = textToLdapAttribute(textAttributes) ++ bytesToLdapAttribute(binaryAttributes)
+    val attributes = toLdapAttributes(textAttributes, binaryAttributes)
     val attributesModification: Seq[AttributeModification] = attributes.map { attribute =>
       new AttributeModification(AttributeModificationType.REPLACE, attribute)
     }
@@ -208,17 +210,16 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     settings.baseDomain
   }
 
-  private def textToLdapAttribute(attributes: Map[String, Seq[String]]): Seq[LdapAttribute] =
-    attributes.map {
-      case (name, values) =>
-        new LdapAttribute(name, values: _*)
-    }.toSeq
+  private def toLdapAttributes(textAttributes: Map[String, Seq[String]],
+                               binaryAttributes: Map[String, Seq[Array[Byte]]]): Seq[LdapAttribute] = {
+    val result = textAttributes.map {
+        case (name, values) => new LdapAttribute(name, values: _*)
+      } ++ binaryAttributes.map {
+        case (name, values) => new LdapAttribute(name, values: _*)
+      }
 
-  def bytesToLdapAttribute(attributes: Map[String, Seq[Array[Byte]]]): Seq[LdapAttribute] =
-    attributes.map {
-      case (name, values) =>
-        new LdapAttribute(name, values: _*)
-    }.toSeq
+    result.toSeq
+  }
 
   //  private def attributesToString(attributes: Map[String, String]): String = attributes.mkString("[ ", " ; ", " ]")
 
