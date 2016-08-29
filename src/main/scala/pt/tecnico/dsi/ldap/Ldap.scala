@@ -143,7 +143,7 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     request.setDerefAliases(DerefAliases.valueOf(settings.searchDereferenceAlias))
     request.setSearchScope(SearchScope.valueOf(settings.searchScope))
     request.setSizeLimit(size)
-    request.setTimeLimit(settings.searchTimeLimit.toMillis)
+    request.setTimeLimit(settings.searchTimeLimit)
 
     val operation: SearchOperation = new SearchOperation(connection)
     //    addOperationHandler(operation)

@@ -29,12 +29,13 @@ scalacOptions ++= Seq(
   "-Ywarn-dead-code"                //Warn when dead code is identified.
 )
 
+val ldaptiveVersion = "1.2.0"
 libraryDependencies ++= Seq(
   // Actors
-  "com.typesafe.akka" %% "akka-actor" % "2.4.8",
+  "com.typesafe.akka" %% "akka-actor" % "2.4.9",
   //Ldap
-  "org.ldaptive" % "ldaptive" % "1.1.0",
-  "org.ldaptive" % "ldaptive-unboundid" % "1.1.0",
+  "org.ldaptive" % "ldaptive" % ldaptiveVersion,
+  "org.ldaptive" % "ldaptive-unboundid" % ldaptiveVersion,
   "com.unboundid" % "unboundid-ldapsdk" % "3.1.1",
   //AES Random Number Generator
   "io.gatling.uncommons.maths" % "uncommons-maths" % "1.2.3", //the most recent version is not provided by uncommons.maths organization

@@ -54,8 +54,8 @@ class Settings(config: Config = ConfigFactory.load()) {
   private val credential: Credential = new Credential(bindPassword)
 
   val connectionConfig = new ConnectionConfig(host)
-  connectionConfig.setConnectTimeout(connectionTimeout.toMillis)
-  connectionConfig.setResponseTimeout(responseTimeout.toMillis)
+  connectionConfig.setConnectTimeout(connectionTimeout)
+  connectionConfig.setResponseTimeout(responseTimeout)
   connectionConfig.setUseStartTLS(false)
   connectionConfig.setUseSSL(enableSSL)
   connectionConfig.setConnectionInitializer(new BindConnectionInitializer(bindDN, credential))
@@ -105,13 +105,13 @@ class Settings(config: Config = ConfigFactory.load()) {
   poolConfig.setMinPoolSize(minPoolSize)
   poolConfig.setMaxPoolSize(maxPoolSize)
   poolConfig.setValidatePeriodically(true)
-  poolConfig.setValidatePeriod(validationPeriod.getSeconds)
+  poolConfig.setValidatePeriod(validationPeriod)
 
   //TODO Say on documentations that if one wants to use a non blocking connection pool to extend this class an override
   //     the proper val
   val pool = new BlockingConnectionPool()
 //  val pool = new SoftLimitConnectionPool()
-  pool.setBlockWaitTime(blockWaitTime.toMillis)
+  pool.setBlockWaitTime(blockWaitTime)
   pool.setConnectionFactory(defaultConnectionFactory)
   pool.setFailFastInitialize(true)
   //Before connections are checked back into the pool a bind request will be made.
@@ -122,7 +122,7 @@ class Settings(config: Config = ConfigFactory.load()) {
   //Connections that fail validation are evicted from the pool.
   pool.setValidator(new SearchValidator())
   //Prunes connections from the pool based on how long they have been idle.
-  pool.setPruneStrategy(new IdlePruneStrategy(prunePeriod.getSeconds, pruneIdleTime.getSeconds))
+  pool.setPruneStrategy(new IdlePruneStrategy(prunePeriod, pruneIdleTime))
 
   val pooledConnectionFactory: PooledConnectionFactory = new PooledConnectionFactory(pool)
 
