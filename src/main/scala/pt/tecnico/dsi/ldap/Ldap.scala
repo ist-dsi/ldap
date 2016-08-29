@@ -4,7 +4,6 @@ import com.typesafe.scalalogging.LazyLogging
 import org.ldaptive.pool._
 import org.ldaptive._
 
-import java.util.{Iterator => JIterator}
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -162,7 +161,8 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
         if (size == 1) {
           fixLdapEntry(result.getEntry).toSeq
         } else {
-          iteratorToSeq(result.getEntries.iterator)(fixLdapEntry).flatten
+          result.getEntries.asScala.flatMap(fixLdapEntry).toSeq
+//          iteratorToSeq(result.getEntries.iterator)(fixLdapEntry).flatten
         }
       }
     }
@@ -188,45 +188,21 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
   }
 
   private def fixLdapAttribute(e: LdapEntry): Entry = {
-    val (binaryAttributes, textAttributes) = partitionAttributes(e.getAttributes.iterator())(_.isBinary)
+    val (binaryAttributes, textAttributes) = e.getAttributes.asScala.partition(_.isBinary)
     val dn = Option(e.getDn)
 
     val mappedTextAttributes: Map[String, Seq[String]] = textAttributes.map { attribute =>
-      attribute.getName -> iteratorToSeq(attribute.getStringValues.iterator)(identity)
+      attribute.getName -> attribute.getStringValues.asScala.toSeq
     }.toMap
 
     val mappedBinaryAttributes: Map[String, Seq[Array[Byte]]] = binaryAttributes.map { attribute =>
-      attribute.getName -> iteratorToSeq(attribute.getBinaryValues.iterator)(identity)
+      attribute.getName -> attribute.getBinaryValues.asScala.toSeq
     }.toMap
 
     Entry(dn, mappedTextAttributes, mappedBinaryAttributes)
   }
 
-  private def partitionAttributes(attributes: JIterator[LdapAttribute])
-                                 (f: LdapAttribute => Boolean): (Seq[LdapAttribute], Seq[LdapAttribute]) = {
-    var matches = Seq.empty[LdapAttribute]
-    var nonMatches = Seq.empty[LdapAttribute]
-
-    while (attributes.hasNext) {
-      val element = attributes.next
-      if (f(element)) {
-        matches :+= element
-      } else {
-        nonMatches :+= element
-      }
-    }
-    (matches, nonMatches)
-  }
-
-  private def iteratorToSeq[T, U](iterator: JIterator[T])(map: T => U): Seq[U] = {
-    var ele = Seq.empty[U]
-    while (iterator.hasNext) {
-      ele :+= map(iterator.next)
-    }
-    ele
-  }
-
-  private def appendBaseDn(dn: String = ""): String = if(dn.nonEmpty) {
+  private def appendBaseDn(dn: String = ""): String = if (dn.nonEmpty) {
     s"$dn,${settings.baseDomain}"
   } else {
     settings.baseDomain
