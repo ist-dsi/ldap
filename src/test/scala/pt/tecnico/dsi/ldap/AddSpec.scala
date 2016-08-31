@@ -1,6 +1,7 @@
 package pt.tecnico.dsi.ldap
 
 import org.ldaptive.LdapException
+import org.scalatest.Assertions
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -17,11 +18,11 @@ class AddSpec extends UnitSpec {
     val assert = simpleLdap.addEntry(s"$cn=$janeDoe", Map(cn -> List(janeDoe), sn -> List(doe), telephoneNumber -> List(number),
       objectClass -> List(person))).flatMap { _ =>
       simpleLdap.search(s"$cn=$janeDoe", s"$cn=$janeDoe", size = 1).map { result =>
-        val entry = result.head
-
-        entry.textValue(cn).value shouldBe janeDoe
-        entry.textValue(sn).value shouldBe doe
-        entry.textValue(telephoneNumber).value shouldBe number
+        result.headOption.map { entry =>
+          entry.textValue(cn).value shouldBe janeDoe
+          entry.textValue(sn).value shouldBe doe
+          entry.textValue(telephoneNumber).value shouldBe number
+        }.getOrElse(Assertions.fail)
       }
     }
 
@@ -43,10 +44,11 @@ class AddSpec extends UnitSpec {
       }
     }.flatMap { _ =>
       simpleLdap.search(s"$cn=$johnDoe", s"$cn=$johnDoe", size = 1).map { result =>
-        val entry = result.head
-        entry.textValue(cn) shouldBe Some(johnDoe)
-        entry.textValue(sn) shouldBe Some(doe)
-        entry.textValue(telephoneNumber) shouldBe Some(number)
+        result.headOption.map { entry =>
+          entry.textValue(cn) shouldBe Some(johnDoe)
+          entry.textValue(sn) shouldBe Some(doe)
+          entry.textValue(telephoneNumber) shouldBe Some(number)
+        }.getOrElse(Assertions.fail)
       }
     }
 
@@ -68,12 +70,12 @@ class AddSpec extends UnitSpec {
         telephoneNumber -> List(number), description -> List(descriptionValue), objectClass -> List(person)))
     }.flatMap { _ =>
       simpleLdap.search(s"$cn=$anthonyDoe", s"$cn=$anthonyDoe", size = 1).map { result =>
-        val entry = result.head
-
-        entry.textValue(cn) shouldBe Some(anthonyDoe)
-        entry.textValue(sn) shouldBe Some(doe)
-        entry.textValue(telephoneNumber) shouldBe Some(number)
-        entry.textValue(description) shouldBe Some(descriptionValue)
+        result.headOption.map { entry =>
+          entry.textValue(cn) shouldBe Some(anthonyDoe)
+          entry.textValue(sn) shouldBe Some(doe)
+          entry.textValue(telephoneNumber) shouldBe Some(number)
+          entry.textValue(description) shouldBe Some(descriptionValue)
+        }.getOrElse(Assertions.fail)
       }
     }
 
