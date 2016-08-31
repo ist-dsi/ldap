@@ -94,7 +94,7 @@ class AddSpec extends UnitSpec {
   it should "fail when adding and entry without all required attributes" in {
     val samDoe = "Samuel Doe"
     recoverToSucceededIf[LdapException] {
-      simpleLdap.addEntry(s"$cn=$samDoe", Map(cn -> Seq(samDoe)))
+      simpleLdap.addEntry(s"$cn=$samDoe", Map(cn -> List(samDoe)))
     }
   }
 
