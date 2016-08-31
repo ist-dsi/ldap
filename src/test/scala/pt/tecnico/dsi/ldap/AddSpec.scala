@@ -14,8 +14,8 @@ class AddSpec extends UnitSpec {
     val janeDoe: String = "Jane Doe"
     val number: String = "960000000"
 
-    val assert = simpleLdap.addEntry(s"$cn=$janeDoe", Map(cn -> Seq(janeDoe), sn -> Seq(doe), telephoneNumber -> Seq(number),
-      objectClass -> Seq(person))).flatMap { _ =>
+    val assert = simpleLdap.addEntry(s"$cn=$janeDoe", Map(cn -> List(janeDoe), sn -> List(doe), telephoneNumber -> List(number),
+      objectClass -> List(person))).flatMap { _ =>
       simpleLdap.search(s"$cn=$janeDoe", s"$cn=$janeDoe", size = 1).map { result =>
         val entry = result.head
 
@@ -38,8 +38,8 @@ class AddSpec extends UnitSpec {
 
     val assert = Future.sequence {
       (1 to repetitions).map { _ =>
-        simpleLdap.addEntry(s"$cn=$johnDoe", Map(cn -> Seq(johnDoe), sn -> Seq(doe),
-          telephoneNumber -> Seq(number), objectClass -> Seq(person)))
+        simpleLdap.addEntry(s"$cn=$johnDoe", Map(cn -> List(johnDoe), sn -> List(doe),
+          telephoneNumber -> List(number), objectClass -> List(person)))
       }
     }.flatMap { _ =>
       simpleLdap.search(s"$cn=$johnDoe", s"$cn=$johnDoe", size = 1).map { result =>
@@ -64,8 +64,8 @@ class AddSpec extends UnitSpec {
     val descriptionValue: String = "Found in US"
 
     val assert = {
-      simpleLdap.addEntry(s"$cn=$anthonyDoe", Map(cn -> Seq(anthonyDoe), sn -> Seq(doe),
-        telephoneNumber -> Seq(number), description -> Seq(descriptionValue), objectClass -> Seq(person)))
+      simpleLdap.addEntry(s"$cn=$anthonyDoe", Map(cn -> List(anthonyDoe), sn -> List(doe),
+        telephoneNumber -> List(number), description -> List(descriptionValue), objectClass -> List(person)))
     }.flatMap { _ =>
       simpleLdap.search(s"$cn=$anthonyDoe", s"$cn=$anthonyDoe", size = 1).map { result =>
         val entry = result.head

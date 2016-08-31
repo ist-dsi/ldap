@@ -64,8 +64,8 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     * @param ex               the execution context where the `Future` will be executed
     * @return a `Future` wrapping the add operation
     */
-  def addEntry(dn: String = "", textAttributes: Map[String, Seq[String]] = Map.empty,
-               binaryAttributes: Map[String, Seq[Array[Byte]]] = Map.empty)
+  def addEntry(dn: String = "", textAttributes: Map[String, List[String]] = Map.empty,
+               binaryAttributes: Map[String, List[Array[Byte]]] = Map.empty)
               (implicit ex: ExecutionContext): Future[Unit] = {
 
     //Convert the attributes to a sequence of LdapAttribute
@@ -97,8 +97,8 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     }
   }
 
-  def addAttributes(dn: String = "", textAttributes: Map[String, Seq[String]] = Map.empty,
-                    binaryAttributes: Map[String, Seq[Array[Byte]]] = Map.empty)(implicit ex: ExecutionContext): Future[Unit] = {
+  def addAttributes(dn: String = "", textAttributes: Map[String, List[String]] = Map.empty,
+                    binaryAttributes: Map[String, List[Array[Byte]]] = Map.empty)(implicit ex: ExecutionContext): Future[Unit] = {
     val attributes = toLdapAttributes(textAttributes, binaryAttributes)
 
     val attributesModification: Seq[AttributeModification] = attributes.map { attribute =>
@@ -108,8 +108,8 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     executeModifyOperation(dn, attributesModification)(s"Adding attributes for ${appendBaseDn(dn)}")
   }
 
-  def replaceAttributes(dn: String = "", textAttributes: Map[String, Seq[String]],
-                        binaryAttributes: Map[String, Seq[Array[Byte]]])(implicit ex: ExecutionContext): Future[Unit] = {
+  def replaceAttributes(dn: String = "", textAttributes: Map[String, List[String]],
+                        binaryAttributes: Map[String, List[Array[Byte]]])(implicit ex: ExecutionContext): Future[Unit] = {
     val attributes = toLdapAttributes(textAttributes, binaryAttributes)
     val attributesModification: Seq[AttributeModification] = attributes.map { attribute =>
       new AttributeModification(AttributeModificationType.REPLACE, attribute)
@@ -164,7 +164,6 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
           fixLdapEntry(result.getEntry).toSeq
         } else {
           result.getEntries.asScala.flatMap(fixLdapEntry).toSeq
-//          iteratorToSeq(result.getEntries.iterator)(fixLdapEntry).flatten
         }
       }
     }
@@ -193,12 +192,12 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     val (binaryAttributes, textAttributes) = e.getAttributes.asScala.partition(_.isBinary)
     val dn = Option(e.getDn)
 
-    val mappedTextAttributes: Map[String, Seq[String]] = textAttributes.map { attribute =>
-      attribute.getName -> attribute.getStringValues.asScala.toSeq
+    val mappedTextAttributes: Map[String, List[String]] = textAttributes.map { attribute =>
+      attribute.getName -> attribute.getStringValues.asScala.toList
     }.toMap
 
-    val mappedBinaryAttributes: Map[String, Seq[Array[Byte]]] = binaryAttributes.map { attribute =>
-      attribute.getName -> attribute.getBinaryValues.asScala.toSeq
+    val mappedBinaryAttributes: Map[String, List[Array[Byte]]] = binaryAttributes.map { attribute =>
+      attribute.getName -> attribute.getBinaryValues.asScala.toList
     }.toMap
 
     Entry(dn, mappedTextAttributes, mappedBinaryAttributes)
@@ -210,8 +209,8 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     settings.baseDomain
   }
 
-  private def toLdapAttributes(textAttributes: Map[String, Seq[String]],
-                               binaryAttributes: Map[String, Seq[Array[Byte]]]): Seq[LdapAttribute] = {
+  private def toLdapAttributes(textAttributes: Map[String, List[String]],
+                               binaryAttributes: Map[String, List[Array[Byte]]]): Seq[LdapAttribute] = {
     val result = textAttributes.map {
         case (name, values) => new LdapAttribute(name, values: _*)
       } ++ binaryAttributes.map {
