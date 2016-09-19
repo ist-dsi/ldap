@@ -14,7 +14,7 @@ javacOptions ++= Seq(
   "-Dfile.encoding=utf-8"
 )
 
-scalaVersion := "2.11.8"
+scalaVersion := "2.12.0-RC1"
 scalacOptions ++= Seq(
   "-target:jvm-1.8",
   "-deprecation",                   //Emit warning and location for usages of deprecated APIs.
@@ -24,7 +24,7 @@ scalacOptions ++= Seq(
   "-unchecked",                     //Enable detailed unchecked (erasure) warnings
   "-Xfatal-warnings",               //Fail the compilation if there are any warnings.
   "-Xlint",                         //Enable recommended additional warnings.
-  "-Yinline-warnings",              //Emit inlining warnings.
+//  "-Yinline-warnings",              //Emit inlining warnings.
   "-Yno-adapted-args",              //Do not adapt an argument list (either by inserting () or creating a tuple) to match the receiver.
   "-Ywarn-dead-code"                //Warn when dead code is identified.
 )
@@ -32,7 +32,7 @@ scalacOptions ++= Seq(
 val ldaptiveVersion = "1.2.0"
 libraryDependencies ++= Seq(
   // Actors
-  "com.typesafe.akka" %% "akka-actor" % "2.4.9",
+  "com.typesafe.akka" %% "akka-actor" % "2.4.10",
   //Ldap
   "org.ldaptive" % "ldaptive" % ldaptiveVersion,
   "org.ldaptive" % "ldaptive-unboundid" % ldaptiveVersion,
@@ -40,7 +40,7 @@ libraryDependencies ++= Seq(
   //AES Random Number Generator
   "io.gatling.uncommons.maths" % "uncommons-maths" % "1.2.3", //the most recent version is not provided by uncommons.maths organization
   //Logging
-  "com.typesafe.scala-logging" %% "scala-logging" % "3.4.0",
+  "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0",
   "ch.qos.logback" % "logback-classic" % "1.1.7",
   //Testing
   "org.scalatest" %% "scalatest" % "3.0.0" % "test",
@@ -48,7 +48,7 @@ libraryDependencies ++= Seq(
   "com.typesafe" % "config" % "1.3.0"
 )
 
-resolvers += Resolver.mavenLocal
+resolvers += "jitpack" at "https://jitpack.io" // Needed for scala logging
 
 shellPrompt := { s => Project.extract(s).currentProject.id + " > " }
 

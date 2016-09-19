@@ -8,7 +8,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import com.unboundid.util.ssl.{SSLUtil, TrustStoreTrustManager}
 import org.ldaptive._
 import org.ldaptive.pool._
-import org.ldaptive.provider.unboundid.{UnboundIDProvider, UnboundIDProviderConfig}
+import org.ldaptive.provider.jndi.{JndiProvider, JndiProviderConfig}
 import org.ldaptive.ssl.{KeyStoreCredentialConfig, SslConfig}
 import pt.tecnico.dsi.ldap.security.provider.MathsProvider
 
@@ -70,8 +70,8 @@ class Settings(config: Config = ConfigFactory.load()) {
   sslConfig.setEnabledProtocols(protocol)
   sslConfig.setEnabledCipherSuites(enabledAlgorithms: _*)
 
-  private val provider = new UnboundIDProvider()
-  private val providerConfig = new UnboundIDProviderConfig()
+  private val provider = new JndiProvider()
+  private val providerConfig = new JndiProviderConfig()
 
   if (enableSSL) {
     val randomNumberGenerator = {
@@ -95,7 +95,7 @@ class Settings(config: Config = ConfigFactory.load()) {
     val sslContext = SSLContext.getInstance(protocol)
     sslContext.init(sslUtil.getKeyManagers, sslUtil.getTrustManagers, randomNumberGenerator)
 
-    providerConfig.setSSLSocketFactory(sslContext.getSocketFactory)
+    providerConfig.setSslSocketFactory(sslContext.getSocketFactory)
     provider.setProviderConfig(providerConfig)
   }
 
@@ -109,15 +109,13 @@ class Settings(config: Config = ConfigFactory.load()) {
 
   //TODO Say on documentations that if one wants to use a non blocking connection pool to extend this class an override
   //     the proper val
-  val pool = new BlockingConnectionPool()
+  val pool = new BlockingConnectionPool(poolConfig, defaultConnectionFactory)
 //  val pool = new SoftLimitConnectionPool()
   pool.setBlockWaitTime(blockWaitTime)
-  pool.setConnectionFactory(defaultConnectionFactory)
   pool.setFailFastInitialize(true)
   //Before connections are checked back into the pool a bind request will be made.
   //This makes connections consistent with ConnectionInitializer from ConnectionConfig
   pool.setPassivator(new BindPassivator(new BindRequest(bindDN, credential)))
-  pool.setPoolConfig(poolConfig)
   //SearchValidator - connection is valid if the search operation returns one or more results.
   //Connections that fail validation are evicted from the pool.
   pool.setValidator(new SearchValidator())

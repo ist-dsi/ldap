@@ -3,7 +3,6 @@ package pt.tecnico.dsi.ldap
 import org.ldaptive.LdapException
 import org.scalatest.Assertions
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 class AddSpec extends UnitSpec {

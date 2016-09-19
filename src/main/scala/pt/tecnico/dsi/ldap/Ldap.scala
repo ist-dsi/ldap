@@ -30,27 +30,38 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     case _ => "" //Nothing to do
   }
 
-  private def withConnection[R](f: Connection => Future[R])(implicit ex: ExecutionContext): Future[R] = Future {
-    logger.debug(s"${logAvailableConnectionsInPool}Obtaining connection")
+  private def getConnection(implicit ex: ExecutionContext): Future[Connection] = Future {
+    logger.debug(s"$logAvailableConnectionsInPool - obtaining connection")
     connectionFactory.getConnection
-  } flatMap { connection =>
-    Try {
-      if (!connection.isOpen) {
-        logger.debug("Connection opened")
-        connection.open()
+  }
+
+  private def withConnection[R](f: Connection => Future[R])(implicit ex: ExecutionContext): Future[R] = {
+    getConnection.flatMap { connection =>
+      val operation = Try {
+        if (!connection.isOpen) {
+          logger.debug("Connection opened")
+          connection.open()
+        }
+
+        val result = f(connection)
+
+        //        result.onComplete { _ =>
+        //          connection.close()
+        //          logger.debug(s"Connection closed $logAvailableConnectionsInPool")
+        //        }
+
+        result
+      } match {
+        case Success(result) => result
+        case Failure(exception) => Future.failed(exception)
       }
 
-      val result = f(connection)
-
-      result.onComplete { _ =>
+      operation.onComplete { _ =>
         connection.close()
         logger.debug(s"Connection closed $logAvailableConnectionsInPool")
       }
 
-      result
-    } match {
-      case Success(result) => result
-      case Failure(exception) => Future.failed(exception)
+      operation
     }
   }
 
@@ -69,7 +80,7 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
               (implicit ex: ExecutionContext): Future[Unit] = {
 
     //Convert the attributes to a sequence of LdapAttribute
-//    val ldapAttributes = textToLdapAttribute(textAttributes) ++ bytesToLdapAttribute(binaryAttributes)
+    //    val ldapAttributes = textToLdapAttribute(textAttributes) ++ bytesToLdapAttribute(binaryAttributes)
 
     val ldapAttributes = toLdapAttributes(textAttributes, binaryAttributes)
 
@@ -212,10 +223,10 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
   private def toLdapAttributes(textAttributes: Map[String, List[String]],
                                binaryAttributes: Map[String, List[Array[Byte]]]): Seq[LdapAttribute] = {
     val result = textAttributes.map {
-        case (name, values) => new LdapAttribute(name, values: _*)
-      } ++ binaryAttributes.map {
-        case (name, values) => new LdapAttribute(name, values: _*)
-      }
+      case (name, values) => new LdapAttribute(name, values: _*)
+    } ++ binaryAttributes.map {
+      case (name, values) => new LdapAttribute(name, values: _*)
+    }
 
     result.toSeq
   }
