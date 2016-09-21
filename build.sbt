@@ -48,8 +48,6 @@ libraryDependencies ++= Seq(
   "com.typesafe" % "config" % "1.3.0"
 )
 
-resolvers += "jitpack" at "https://jitpack.io" // Needed for scala logging
-
 shellPrompt := { s => Project.extract(s).currentProject.id + " > " }
 
 autoAPIMappings := true

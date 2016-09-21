@@ -12,13 +12,13 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
 
   private val connectionFactory: ConnectionFactory = if (settings.enablePool) {
     settings.pool.initialize()
-    logger.info("Connection pool initialized successfully")
+    logger.info(s"Connection pool initialized successfully")
     settings.pooledConnectionFactory
   } else {
     settings.defaultConnectionFactory
   }
 
-  def close(): Unit = connectionFactory match {
+  def closePool(): Unit = connectionFactory match {
     case cf: PooledConnectionFactory =>
       logger.info("Closing connection pool")
       cf.getConnectionPool.close()
@@ -35,154 +35,9 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     connectionFactory.getConnection
   }
 
-  private def withConnection[R](f: Connection => Future[R])(implicit ex: ExecutionContext): Future[R] = {
-    getConnection.flatMap { connection =>
-      val operation = Try {
-        if (!connection.isOpen) {
-          logger.debug("Connection opened")
-          connection.open()
-        }
-
-        val result = f(connection)
-
-        //        result.onComplete { _ =>
-        //          connection.close()
-        //          logger.debug(s"Connection closed $logAvailableConnectionsInPool")
-        //        }
-
-        result
-      } match {
-        case Success(result) => result
-        case Failure(exception) => Future.failed(exception)
-      }
-
-      operation.onComplete { _ =>
-        connection.close()
-        logger.debug(s"Connection closed $logAvailableConnectionsInPool")
-      }
-
-      operation
-    }
-  }
-
-  /**
-    * Add a new entry to Ldap, using a connection. If an equal entry already exists, nothing is done. Otherwise, the
-    * entry is updated with the new values.
-    *
-    * @param dn               the entry identifier. `base-dn` is appended in the end
-    * @param textAttributes   the entry's text attributes
-    * @param binaryAttributes the entry's binary attributes
-    * @param ex               the execution context where the `Future` will be executed
-    * @return a `Future` wrapping the add operation
-    */
-  def addEntry(dn: String = "", textAttributes: Map[String, List[String]] = Map.empty,
-               binaryAttributes: Map[String, List[Array[Byte]]] = Map.empty)
-              (implicit ex: ExecutionContext): Future[Unit] = {
-
-    //Convert the attributes to a sequence of LdapAttribute
-    //    val ldapAttributes = textToLdapAttribute(textAttributes) ++ bytesToLdapAttribute(binaryAttributes)
-
-    val ldapAttributes = toLdapAttributes(textAttributes, binaryAttributes)
-
-    withConnection { connection =>
-      logger.info(s"Adding ${appendBaseDn(dn)}")
-
-      val operation = new AddOperation(connection)
-      //    addOperationHandler(operation)
-
-      Future[Unit] {
-        operation.execute(new AddRequest(appendBaseDn(dn), ldapAttributes.asJavaCollection))
-      }.recoverWith {
-        case ldapException: LdapException if ldapException.getResultCode == ResultCode.ENTRY_ALREADY_EXISTS =>
-          search(dn, "(objectClass=*)").flatMap(_ => replaceAttributes(dn, textAttributes, binaryAttributes))
-      }
-    }
-  }
-
-  def deleteEntry(dn: String = "")(implicit ex: ExecutionContext): Future[Unit] = withConnection { connection =>
-    logger.info(s"Deleting entry ${appendBaseDn(dn)}")
-    val operation = new DeleteOperation(connection)
-    //    addOperationHandler(operation)
-    Future {
-      operation.execute(new DeleteRequest(appendBaseDn(dn)))
-    }
-  }
-
-  def addAttributes(dn: String = "", textAttributes: Map[String, List[String]] = Map.empty,
-                    binaryAttributes: Map[String, List[Array[Byte]]] = Map.empty)(implicit ex: ExecutionContext): Future[Unit] = {
-    val attributes = toLdapAttributes(textAttributes, binaryAttributes)
-
-    val attributesModification: Seq[AttributeModification] = attributes.map { attribute =>
-      new AttributeModification(AttributeModificationType.ADD, attribute)
-    }
-
-    executeModifyOperation(dn, attributesModification)(s"Adding attributes for ${appendBaseDn(dn)}")
-  }
-
-  def replaceAttributes(dn: String = "", textAttributes: Map[String, List[String]],
-                        binaryAttributes: Map[String, List[Array[Byte]]])(implicit ex: ExecutionContext): Future[Unit] = {
-    val attributes = toLdapAttributes(textAttributes, binaryAttributes)
-    val attributesModification: Seq[AttributeModification] = attributes.map { attribute =>
-      new AttributeModification(AttributeModificationType.REPLACE, attribute)
-    }
-
-    executeModifyOperation(dn, attributesModification)(s"Replacing attributes for ${appendBaseDn(dn)}")
-  }
-
-  def removeAttributes(dn: String = "", attributes: Seq[String])(implicit ex: ExecutionContext): Future[Unit] = {
-    val attributesModification: Seq[AttributeModification] = attributes.map { attribute =>
-      new AttributeModification(AttributeModificationType.REMOVE, new LdapAttribute(attribute))
-    }
-
-    executeModifyOperation(dn, attributesModification)(s"Removing ${attributes.mkString(", ")} attributes for ${appendBaseDn(dn)}")
-  }
-
-  private def executeModifyOperation(dn: String = "", attributes: Seq[AttributeModification])
-                                    (logMessage: String)
-                                    (implicit ex: ExecutionContext): Future[Unit] = withConnection { connection =>
-    logger.info(logMessage)
-    val operation = new ModifyOperation(connection)
-    //      addOperationHandler(operation)
-    Future {
-      operation.execute(new ModifyRequest(appendBaseDn(dn), attributes: _*))
-    }
-  }
-
-  private def createSearchResult(dn: String = "", filter: String, attributes: Seq[String], size: Int)
-                                (implicit connection: Connection, ex: ExecutionContext): Future[SearchResult] = {
-    val request = new SearchRequest(appendBaseDn(dn), filter, attributes: _*)
-    request.setDerefAliases(DerefAliases.valueOf(settings.searchDereferenceAlias))
-    request.setSearchScope(SearchScope.valueOf(settings.searchScope))
-    request.setSizeLimit(size)
-    request.setTimeLimit(settings.searchTimeLimit)
-
-    val operation: SearchOperation = new SearchOperation(connection)
-    //    addOperationHandler(operation)
-    Future {
-      operation.execute(request).getResult
-    }
-  }
-
-  def search(dn: String = "", filter: String, returningAttributes: Seq[String] = Seq.empty, size: Int = settings.searchSizeLimit)
-            (implicit ex: ExecutionContext): Future[Seq[Entry]] = {
-    assert(size > -1, "The number of results expected should be a non-negative integer.")
-    assert(filter.nonEmpty, "Filter cannot be empty.")
-    withConnection { implicit connection =>
-      logger.info(s"Performing a search($size) for ${appendBaseDn(dn)}, with $filter and returning ${returningAttributes.mkString(", ")} attributes")
-
-      createSearchResult(dn, filter, returningAttributes, size).map { result =>
-        if (size == 1) {
-          fixLdapEntry(result.getEntry).toSeq
-        } else {
-          result.getEntries.asScala.flatMap(fixLdapEntry).toSeq
-        }
-      }
-    }
-  }
-
-  def searchAll(dn: String = "", filter: String, returningAttributes: Seq[String] = Seq.empty)
-               (implicit ex: ExecutionContext): Future[Seq[Entry]] = {
-    search(dn, filter, returningAttributes, 0)
+  private def closeConnection(connection: Connection): Unit = {
+    connection.close()
+    logger.debug(s"Connection closed. $logAvailableConnectionsInPool")
   }
 
   //  private def addOperationHandler[R <: Request, S](operation: AbstractOperation[R,S]): Unit = {
@@ -231,6 +86,142 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     result.toSeq
   }
 
-  //  private def attributesToString(attributes: Map[String, String]): String = attributes.mkString("[ ", " ; ", " ]")
+  private def withConnection[R](f: Connection => Future[R])(implicit ex: ExecutionContext): Future[R] = {
+    getConnection.flatMap { connection =>
+      val operation = Try {
+        if (!connection.isOpen) {
+          logger.debug("Connection opened")
+          connection.open()
+        }
+
+        f(connection)
+      } match {
+        case Success(result) => result
+        case Failure(exception) => Future.failed(exception)
+      }
+      operation.onComplete(_ => closeConnection(connection))
+      operation
+    }
+  }
+
+  /**
+    * Add a new entry to Ldap, using a connection. If an equal entry already exists, nothing is done. Otherwise, the
+    * entry is updated with the new values.
+    *
+    * @param dn               the entry identifier. `base-dn` is appended in the end
+    * @param textAttributes   the entry's text attributes
+    * @param binaryAttributes the entry's binary attributes
+    * @param ex               the execution context where the `Future` will be executed
+    * @return a `Future` wrapping the add operation
+    */
+  def addEntry(dn: String = "", textAttributes: Map[String, List[String]] = Map.empty,
+               binaryAttributes: Map[String, List[Array[Byte]]] = Map.empty)(implicit ex: ExecutionContext): Future[Unit] = {
+    val ldapAttributes = toLdapAttributes(textAttributes, binaryAttributes)
+
+    withConnection { connection =>
+      logger.info(s"Adding ${appendBaseDn(dn)}")
+      val operation = new AddOperation(connection)
+
+      //    addOperationHandler(operation)
+      Future[Unit] {
+        operation.execute(new AddRequest(appendBaseDn(dn), ldapAttributes.asJavaCollection))
+        closeConnection(connection) // This must be here!
+      }.recoverWith {
+        case ldapException: LdapException if ldapException.getResultCode == ResultCode.ENTRY_ALREADY_EXISTS =>
+          closeConnection(connection) // This must be here!
+          replaceAttributes(dn, textAttributes, binaryAttributes)
+      }
+    }
+  }
+
+  def deleteEntry(dn: String = "")(implicit ex: ExecutionContext): Future[Unit] = withConnection { connection =>
+    logger.info(s"Deleting entry ${appendBaseDn(dn)}")
+    val operation = new DeleteOperation(connection)
+    //    addOperationHandler(operation)
+    Future {
+      operation.execute(new DeleteRequest(appendBaseDn(dn)))
+      closeConnection(connection) // This must be here!
+    }
+  }
+
+  def addAttributes(dn: String = "", textAttributes: Map[String, List[String]] = Map.empty,
+                    binaryAttributes: Map[String, List[Array[Byte]]] = Map.empty)(implicit ex: ExecutionContext): Future[Unit] = {
+    val attributes = toLdapAttributes(textAttributes, binaryAttributes)
+
+    val attributesModification: Seq[AttributeModification] = attributes.map { attribute =>
+      new AttributeModification(AttributeModificationType.ADD, attribute)
+    }
+
+    executeModifyOperation(dn, attributesModification)(s"Adding attributes for ${appendBaseDn(dn)}")
+  }
+
+  def replaceAttributes(dn: String = "", textAttributes: Map[String, List[String]],
+                        binaryAttributes: Map[String, List[Array[Byte]]])(implicit ex: ExecutionContext): Future[Unit] = {
+    val attributes = toLdapAttributes(textAttributes, binaryAttributes)
+    val attributesModification: Seq[AttributeModification] = attributes.map { attribute =>
+      new AttributeModification(AttributeModificationType.REPLACE, attribute)
+    }
+
+    executeModifyOperation(dn, attributesModification)(s"Replacing attributes for ${appendBaseDn(dn)}")
+  }
+
+  def removeAttributes(dn: String = "", attributes: Seq[String])(implicit ex: ExecutionContext): Future[Unit] = {
+    val attributesModification: Seq[AttributeModification] = attributes.map { attribute =>
+      new AttributeModification(AttributeModificationType.REMOVE, new LdapAttribute(attribute))
+    }
+
+    executeModifyOperation(dn, attributesModification)(s"Removing ${attributes.mkString(", ")} attributes for ${appendBaseDn(dn)}")
+  }
+
+  private def executeModifyOperation(dn: String = "", attributes: Seq[AttributeModification])
+                                    (logMessage: String)
+                                    (implicit ex: ExecutionContext): Future[Unit] = withConnection { connection =>
+    logger.info(logMessage)
+    val operation = new ModifyOperation(connection)
+    //      addOperationHandler(operation)
+    Future {
+      operation.execute(new ModifyRequest(appendBaseDn(dn), attributes: _*))
+      closeConnection(connection) // This must be here!
+    }
+  }
+
+  private def createSearchResult(dn: String = "", filter: String, attributes: Seq[String], size: Int)
+                                (implicit connection: Connection, ex: ExecutionContext): Future[SearchResult] = {
+    val request = new SearchRequest(appendBaseDn(dn), filter, attributes: _*)
+    request.setDerefAliases(DerefAliases.valueOf(settings.searchDereferenceAlias))
+    request.setSearchScope(SearchScope.valueOf(settings.searchScope))
+    request.setSizeLimit(size)
+    request.setTimeLimit(settings.searchTimeLimit)
+
+    val operation: SearchOperation = new SearchOperation(connection)
+    //    addOperationHandler(operation)
+    Future {
+      val result = operation.execute(request).getResult
+      closeConnection(connection) // This must be here!
+      result
+    }
+  }
+
+  def search(dn: String = "", filter: String, returningAttributes: Seq[String] = Seq.empty, size: Int = settings.searchSizeLimit)
+            (implicit ex: ExecutionContext): Future[Seq[Entry]] = {
+    assert(size > -1, "The number of results expected should be a non-negative integer.")
+    assert(filter.nonEmpty, "Filter cannot be empty.")
+    withConnection { implicit connection =>
+      logger.info(s"Performing a search($size) for ${appendBaseDn(dn)}, with $filter and returning ${returningAttributes.mkString(", ")} attributes")
+
+      createSearchResult(dn, filter, returningAttributes, size).map { result =>
+        if (size == 1) {
+          fixLdapEntry(result.getEntry).toSeq
+        } else {
+          result.getEntries.asScala.flatMap(fixLdapEntry).toSeq
+        }
+      }
+    }
+  }
+
+  def searchAll(dn: String = "", filter: String, returningAttributes: Seq[String] = Seq.empty)
+               (implicit ex: ExecutionContext): Future[Seq[Entry]] = {
+    search(dn, filter, returningAttributes, 0)
+  }
 
 }

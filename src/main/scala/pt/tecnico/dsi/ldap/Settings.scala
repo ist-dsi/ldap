@@ -8,7 +8,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import com.unboundid.util.ssl.{SSLUtil, TrustStoreTrustManager}
 import org.ldaptive._
 import org.ldaptive.pool._
-import org.ldaptive.provider.jndi.{JndiProvider, JndiProviderConfig}
+import org.ldaptive.provider.unboundid.{UnboundIDProvider, UnboundIDProviderConfig}
 import org.ldaptive.ssl.{KeyStoreCredentialConfig, SslConfig}
 import pt.tecnico.dsi.ldap.security.provider.MathsProvider
 
@@ -70,8 +70,8 @@ class Settings(config: Config = ConfigFactory.load()) {
   sslConfig.setEnabledProtocols(protocol)
   sslConfig.setEnabledCipherSuites(enabledAlgorithms: _*)
 
-  private val provider = new JndiProvider()
-  private val providerConfig = new JndiProviderConfig()
+  private val provider = new UnboundIDProvider()
+  private val providerConfig = new UnboundIDProviderConfig()
 
   if (enableSSL) {
     val randomNumberGenerator = {
@@ -95,7 +95,7 @@ class Settings(config: Config = ConfigFactory.load()) {
     val sslContext = SSLContext.getInstance(protocol)
     sslContext.init(sslUtil.getKeyManagers, sslUtil.getTrustManagers, randomNumberGenerator)
 
-    providerConfig.setSslSocketFactory(sslContext.getSocketFactory)
+    providerConfig.setSSLSocketFactory(sslContext.getSocketFactory)
     provider.setProviderConfig(providerConfig)
   }
 
@@ -104,6 +104,10 @@ class Settings(config: Config = ConfigFactory.load()) {
   val poolConfig: PoolConfig = new PoolConfig()
   poolConfig.setMinPoolSize(minPoolSize)
   poolConfig.setMaxPoolSize(maxPoolSize)
+
+//  poolConfig.setValidateOnCheckIn(true)
+  poolConfig.setValidateOnCheckOut(true)
+
   poolConfig.setValidatePeriodically(true)
   poolConfig.setValidatePeriod(validationPeriod)
 
@@ -111,11 +115,11 @@ class Settings(config: Config = ConfigFactory.load()) {
   //     the proper val
   val pool = new BlockingConnectionPool(poolConfig, defaultConnectionFactory)
 //  val pool = new SoftLimitConnectionPool()
-  pool.setBlockWaitTime(blockWaitTime)
+//  pool.setBlockWaitTime(blockWaitTime)
   pool.setFailFastInitialize(true)
   //Before connections are checked back into the pool a bind request will be made.
   //This makes connections consistent with ConnectionInitializer from ConnectionConfig
-  pool.setPassivator(new BindPassivator(new BindRequest(bindDN, credential)))
+//  pool.setPassivator(new BindPassivator(new BindRequest(bindDN, credential)))
   //SearchValidator - connection is valid if the search operation returns one or more results.
   //Connections that fail validation are evicted from the pool.
   pool.setValidator(new SearchValidator())
