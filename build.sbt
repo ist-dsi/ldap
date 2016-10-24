@@ -14,7 +14,7 @@ javacOptions ++= Seq(
   "-Dfile.encoding=utf-8"
 )
 
-scalaVersion := "2.12.0-RC1"
+scalaVersion := "2.12.0-RC2"
 scalacOptions ++= Seq(
   "-target:jvm-1.8",
   "-deprecation",                   //Emit warning and location for usages of deprecated APIs.
@@ -31,8 +31,6 @@ scalacOptions ++= Seq(
 
 val ldaptiveVersion = "1.2.0"
 libraryDependencies ++= Seq(
-  // Actors
-  "com.typesafe.akka" %% "akka-actor" % "2.4.10",
   //Ldap
   "org.ldaptive" % "ldaptive" % ldaptiveVersion,
   "org.ldaptive" % "ldaptive-unboundid" % ldaptiveVersion,
