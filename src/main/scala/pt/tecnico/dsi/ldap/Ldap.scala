@@ -134,6 +134,13 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     }
   }
 
+  /**
+    * Deletes an entry from Ldap.
+    *
+    * @param dn the entry identifier. `base-dn` is appendend in the end
+    * @param ex the execution context where the `Future` will be executed
+    * @return   a `Future` wrapping the delete operation
+    */
   def deleteEntry(dn: String = "")(implicit ex: ExecutionContext): Future[Unit] = withConnection { connection =>
     logger.info(s"Deleting entry ${appendBaseDn(dn)}")
     val operation = new DeleteOperation(connection)
@@ -141,6 +148,8 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     Future {
       operation.execute(new DeleteRequest(appendBaseDn(dn)))
       closeConnection(connection) // This must be here!
+    }.recoverWith {
+      case ldapException: LdapException if ldapException.getResultCode == ResultCode.NO_SUCH_OBJECT => Future.unit
     }
   }
 
@@ -215,6 +224,9 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
         } else {
           result.getEntries.asScala.flatMap(fixLdapEntry).toSeq
         }
+      }.recoverWith {
+        case ldapException: LdapException if ldapException.getResultCode == ResultCode.NO_SUCH_OBJECT =>
+          Future(Seq.empty[Entry])
       }
     }
   }
