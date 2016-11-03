@@ -8,7 +8,6 @@ import scala.concurrent.Future
 class AddSpec extends UnitSpec {
 
   private val repetitions: Int = 3
-  private val doe = "Doe"
 
   "addEntry" should "add entry successfully " in {
     val janeDoe: String = "Jane Doe"
