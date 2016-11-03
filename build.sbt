@@ -1,20 +1,13 @@
 organization := "pt.tecnico.dsi"
 name := "ldap"
 
-val javaVersion = "1.8"
-initialize := {
-  val current  = sys.props("java.specification.version")
-  assert(current == javaVersion, s"Unsupported JDK: expected JDK $javaVersion installed, but instead got JDK $current.")
-}
 javacOptions ++= Seq(
-  "-source", javaVersion,
-  "-target", javaVersion,
   "-Xlint",
   "-encoding", "UTF-8",
   "-Dfile.encoding=utf-8"
 )
 
-scalaVersion := "2.12.0-RC2"
+scalaVersion := "2.12.0"
 scalacOptions ++= Seq(
   "-target:jvm-1.8",
   "-deprecation",                   //Emit warning and location for usages of deprecated APIs.
@@ -34,7 +27,7 @@ libraryDependencies ++= Seq(
   //Ldap
   "org.ldaptive" % "ldaptive" % ldaptiveVersion,
   "org.ldaptive" % "ldaptive-unboundid" % ldaptiveVersion,
-  "com.unboundid" % "unboundid-ldapsdk" % "3.1.1",
+  "com.unboundid" % "unboundid-ldapsdk" % "3.2.0",
   //AES Random Number Generator
   "io.gatling.uncommons.maths" % "uncommons-maths" % "1.2.3", //the most recent version is not provided by uncommons.maths organization
   //Logging
@@ -43,7 +36,7 @@ libraryDependencies ++= Seq(
   //Testing
   "org.scalatest" %% "scalatest" % "3.0.0" % "test",
   //Configuration
-  "com.typesafe" % "config" % "1.3.0"
+  "com.typesafe" % "config" % "1.3.1"
 )
 
 shellPrompt := { s => Project.extract(s).currentProject.id + " > " }
