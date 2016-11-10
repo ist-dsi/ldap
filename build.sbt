@@ -69,7 +69,9 @@ pomExtra :=
   </developers>
 
 import ReleaseTransformations._
+dependencyUpdatesFailBuild := true
 releaseProcess := Seq[ReleaseStep](
+  releaseStepCommand("dependencyUpdates"),
   checkSnapshotDependencies,
   inquireVersions,
   runClean,
