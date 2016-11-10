@@ -69,17 +69,17 @@ pomExtra :=
   </developers>
 
 import ReleaseTransformations._
-releaseProcess := Seq[ReleaseStep](
+releaseProcess := Seq[ReleaseStep]( 
   checkSnapshotDependencies,
   inquireVersions,
   runClean,
-  ReleaseStep(action = Command.process("doc", _)),
+  releaseStepCommand("doc"),
   runTest,
   setReleaseVersion,
   tagRelease,
-  ReleaseStep(action = Command.process("ghpagesPushSite", _)),
-  ReleaseStep(action = Command.process("publishSigned", _)),
-  ReleaseStep(action = Command.process("sonatypeRelease", _)),
+  releaseStepCommand("ghpagesPushSite"),
+  releaseStepCommand("publishSigned"),
+  releaseStepCommand("sonatypeRelease"),
   setNextVersion,
   commitNextVersion,
   pushChanges
