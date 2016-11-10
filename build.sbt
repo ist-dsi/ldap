@@ -69,7 +69,7 @@ pomExtra :=
   </developers>
 
 import ReleaseTransformations._
-releaseProcess := Seq[ReleaseStep]( 
+releaseProcess := Seq[ReleaseStep](
   checkSnapshotDependencies,
   inquireVersions,
   runClean,
