@@ -69,7 +69,7 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     Entry(dn, mappedTextAttributes, mappedBinaryAttributes)
   }
 
-  private def appendBaseDn(dn: String = ""): String = if (dn.nonEmpty) {
+  private def appendBaseDn(dn: String): String = if (dn.nonEmpty) {
     s"$dn,${settings.baseDomain}"
   } else {
     settings.baseDomain
@@ -182,7 +182,7 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     executeModifyOperation(dn, attributesModification)(s"Removing ${attributes.mkString(", ")} attributes for ${appendBaseDn(dn)}")
   }
 
-  private def executeModifyOperation(dn: String = "", attributes: Seq[AttributeModification])
+  private def executeModifyOperation(dn: String, attributes: Seq[AttributeModification])
                                     (logMessage: String)
                                     (implicit ex: ExecutionContext): Future[Unit] = withConnection { connection =>
     logger.info(logMessage)
@@ -194,12 +194,12 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     }
   }
 
-  private def createSearchResult(dn: String = "", filter: String, attributes: Seq[String], size: Int)
+  private def createSearchResult(dn: String, filter: String, attributes: Seq[String], size: Int)
                                 (implicit connection: Connection, ex: ExecutionContext): Future[SearchResult] = {
     val request = new SearchRequest(appendBaseDn(dn), filter, attributes: _*)
     request.setDerefAliases(DerefAliases.valueOf(settings.searchDereferenceAlias))
     request.setSearchScope(SearchScope.valueOf(settings.searchScope))
-    request.setSizeLimit(size)
+    request.setSizeLimit(size.toLong)
     request.setTimeLimit(settings.searchTimeLimit)
 
     val operation: SearchOperation = new SearchOperation(connection)
