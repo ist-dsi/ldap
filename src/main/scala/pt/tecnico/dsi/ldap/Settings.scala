@@ -3,16 +3,13 @@ package pt.tecnico.dsi.ldap
 import java.security.{KeyStore, SecureRandom}
 import java.time.Duration
 import javax.net.ssl.SSLContext
-
 import com.typesafe.config.{Config, ConfigFactory}
 import com.unboundid.util.ssl.{SSLUtil, TrustStoreTrustManager}
 import org.ldaptive._
 import org.ldaptive.pool._
 import org.ldaptive.provider.unboundid.{UnboundIDProvider, UnboundIDProviderConfig}
 import org.ldaptive.ssl.{KeyStoreCredentialConfig, SslConfig}
-import pt.tecnico.dsi.ldap.security.provider.MathsProvider
-
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class Settings(config: Config = ConfigFactory.load()) {
   // This verifies that the Config is sane and has our reference config. Importantly, we specify the "path"
@@ -48,7 +45,7 @@ class Settings(config: Config = ConfigFactory.load()) {
   val trustStore: String = sslConfigs.getString("trust-store")
   val trustStorePassword: String = sslConfigs.getString("trust-store-password")
   val protocol: String = sslConfigs.getString("protocol")
-  val enabledAlgorithms: Seq[String] = sslConfigs.getStringList("enabled-algorithms").asScala
+  val enabledAlgorithms: Seq[String] = sslConfigs.getStringList("enabled-algorithms").asScala.toSeq
   val randomNumberGeneratorAlgorithm: String = sslConfigs.getString("random-number-generator")
 
   private val credential: Credential = new Credential(bindPassword)
@@ -76,13 +73,16 @@ class Settings(config: Config = ConfigFactory.load()) {
   if (enableSSL) {
     val randomNumberGenerator = {
       val rng = randomNumberGeneratorAlgorithm match {
-        case r @ ("AES128CounterSecureRNG" | "AES256CounterSecureRNG") =>
-          SecureRandom.getInstance(r, MathsProvider)
-        case s @ ("SHA1PRNG" | "NativePRNG") =>
+        case s@("SHA1PRNG" | "NativePRNG") =>
+          //log.debug("SSL random number generator set to: {}", s)
           // SHA1PRNG needs /dev/urandom to be the source on Linux to prevent problems with /dev/random blocking
           // However, this also makes the seed source insecure as the seed is reused to avoid blocking (not a problem on FreeBSD).
           SecureRandom.getInstance(s)
+        case "" | "SecureRandom" =>
+          //log.debug("SSL random number generator set to [SecureRandom]")
+          new SecureRandom
         case _ =>
+          //log.warning(LogMarker.Security, "Unknown SSL random number generator [{}] falling back to SecureRandom", unknown)
           new SecureRandom
       }
       rng.nextInt() // prevent stall on first access
@@ -130,6 +130,6 @@ class Settings(config: Config = ConfigFactory.load()) {
 
   val searchDereferenceAlias: String = searchConfigs.getString("dereference-alias")
   val searchScope: String = searchConfigs.getString("scope")
-  val searchSizeLimit: Int = searchConfigs.getInt("size-limit")
+  val searchSizeLimit: Long = searchConfigs.getLong("size-limit")
   val searchTimeLimit: Duration = searchConfigs.getDuration("time-limit")
 }

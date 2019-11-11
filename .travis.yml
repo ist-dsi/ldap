@@ -1,34 +1,27 @@
-sudo: required
+services: docker
 
 language: scala
-scala: 2.12.3
+scala:
+  - 2.13.1
 jdk: oraclejdk8
-
-services:
-  - docker
 
 cache:
   directories:
-  - $HOME/.sbt/0.13/dependency
-  - $HOME/.sbt/boot/scala*
-  - $HOME/.sbt/launchers
-  - $HOME/.ivy2/cache
+    - "$HOME/.ivy2/cache"
+    - "$HOME/.sbt/boot/"
 
 before_cache:
-  - find $HOME/.sbt -name "*.lock" -type f -delete
-  - find $HOME/.ivy2/cache -name "ivydata-*.properties" -type f -delete
+  # Tricks to avoid unnecessary cache updates
+  - find $HOME/.ivy2 -name "ivydata-*.properties" -delete
+  - find $HOME/.sbt -name "*.lock" -delete
 
-before_install:
-  - docker pull osixia/openldap:1.1.9
-  - docker run --name ldap -p 127.0.0.1:8389:389 -p 127.0.0.1:8636:636 --detach osixia/openldap:1.1.9
+before_script:
+  - sudo iptables -L DOCKER || ( echo "DOCKER iptables chain missing" ; sudo iptables -N DOCKER )
+  - docker run --publish 389:389 --publish 636:636 --detach --name ldap osixia/openldap
 
 script:
-  - sbt coverage test
-  - sbt coverageReport
-  - sbt coverageAggregate
-#  - sbt codacyCoverage
+  #- sbt coverage test
+  - sbt test
 
-notifications:
-  webhooks:
-    secure: "iWjBK/7liaKJsQcZsFKo99+n/3jndFOUqbYaNiTfvD5hQH+MmKiQih1i0p6FdWD3J2U96krW6hgYLvVAFTQ28tOzhx3+9KY6Q5DQoDX3S25zBt73Af/dpVxYGqoxjXoBbd2MWvrxj9IaB8FQEyJ/O2r0s1l00zChLC95YmnnhspdZcD/JbvjbIai6ymbYpzeXm9OTc9VWsWYlYmJTZRekuCFHGvaXMbxBUCABjDcZcctExPBxiJMzzI7riIMZx1JJvBR4yVOxELT6GirhAFiFXZLkXAiinHdI8kQ7wZxx86N3pHGg5hBDA7E1LMmMvK7Zg2pZOWcY+2mJN5d/g6D0/7DMWf7wPrl9SOYd4nOcvbO36z3H0gBQfVz6x19x0UdkeW+vzyZBUHV5Q1H4lRomQbfFC4/UeIq9dxDHz69T6Gxjj56VbqJHcn88H2SAJJOI4FQpUagpot5j7wbUzs7oJ90+9bzypBSQbnaudHccT9km5FYBbpMUiPjnxaJJLW8gpcEfcbOEpN+mgTLiP+ctKXvxG7nMQtPFpRjptIVTME6EGUXnPkav71fIrcujeCwSo9gfHtu515kkO4s9ygQpAZWnqMOtGEnwJmD3XxYQCQg+dJXXX33rb+lqthkVRIhHCSgLLx32JFlneoeN+TLOfwikazvPoAb7+rNVzKXkFg="
-  
+#after_success:
+#  - sbt coverageReport codacyCoverage

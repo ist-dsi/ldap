@@ -4,11 +4,11 @@ import com.typesafe.scalalogging.LazyLogging
 import org.ldaptive.pool._
 import org.ldaptive._
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
-class Ldap(private val settings: Settings = new Settings()) extends LazyLogging {
+class Ldap(val settings: Settings = new Settings()) extends LazyLogging {
 
   private val connectionFactory: ConnectionFactory = if (settings.enablePool) {
     settings.pool.initialize()
@@ -28,11 +28,6 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
   private def logAvailableConnectionsInPool: String = connectionFactory match {
     case cf: PooledConnectionFactory => s"${cf.getConnectionPool.availableCount()} connections available"
     case _ => "" //Nothing to do
-  }
-
-  private def getConnection(implicit ex: ExecutionContext): Future[Connection] = Future {
-    logger.debug(s"$logAvailableConnectionsInPool - obtaining connection")
-    connectionFactory.getConnection
   }
 
   private def closeConnection(connection: Connection): Unit = {
@@ -69,7 +64,7 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     Entry(dn, mappedTextAttributes, mappedBinaryAttributes)
   }
 
-  private def appendBaseDn(dn: String): String = if (dn.nonEmpty) {
+  def appendBaseDn(dn: String = ""): String = if (dn.nonEmpty) {
     s"$dn,${settings.baseDomain}"
   } else {
     settings.baseDomain
@@ -87,18 +82,15 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
   }
 
   private def withConnection[R](f: Connection => Future[R])(implicit ex: ExecutionContext): Future[R] = {
-    getConnection.flatMap { connection =>
+    logger.debug(s"$logAvailableConnectionsInPool - obtaining connection")
+    Future(connectionFactory.getConnection).flatMap { connection =>
       val operation = Try {
         if (!connection.isOpen) {
           logger.debug("Connection opened")
           connection.open()
         }
-
         f(connection)
-      } match {
-        case Success(result) => result
-        case Failure(exception) => Future.failed(exception)
-      }
+      }.fold(Future.failed, identity)
       operation.onComplete(_ => closeConnection(connection))
       operation
     }
@@ -117,13 +109,12 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
   def addEntry(dn: String = "", textAttributes: Map[String, List[String]] = Map.empty,
                binaryAttributes: Map[String, List[Array[Byte]]] = Map.empty)(implicit ex: ExecutionContext): Future[Unit] = {
     val ldapAttributes = toLdapAttributes(textAttributes, binaryAttributes)
-
     withConnection { connection =>
       logger.info(s"Adding ${appendBaseDn(dn)}")
       val operation = new AddOperation(connection)
 
       //    addOperationHandler(operation)
-      Future[Unit] {
+      Future {
         operation.execute(new AddRequest(appendBaseDn(dn), ldapAttributes.asJavaCollection))
         closeConnection(connection) // This must be here!
       }.recoverWith {
@@ -194,12 +185,12 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     }
   }
 
-  private def createSearchResult(dn: String, filter: String, attributes: Seq[String], size: Int)
+  private def createSearchResult(dn: String, filter: String, attributes: Seq[String], size: Long)
                                 (implicit connection: Connection, ex: ExecutionContext): Future[SearchResult] = {
     val request = new SearchRequest(appendBaseDn(dn), filter, attributes: _*)
     request.setDerefAliases(DerefAliases.valueOf(settings.searchDereferenceAlias))
     request.setSearchScope(SearchScope.valueOf(settings.searchScope))
-    request.setSizeLimit(size.toLong)
+    request.setSizeLimit(size)
     request.setTimeLimit(settings.searchTimeLimit)
 
     val operation: SearchOperation = new SearchOperation(connection)
@@ -211,7 +202,7 @@ class Ldap(private val settings: Settings = new Settings()) extends LazyLogging 
     }
   }
 
-  def search(dn: String = "", filter: String, returningAttributes: Seq[String] = Seq.empty, size: Int = settings.searchSizeLimit)
+  def search(dn: String = "", filter: String, returningAttributes: Seq[String] = Seq.empty, size: Long = settings.searchSizeLimit)
             (implicit ex: ExecutionContext): Future[Seq[Entry]] = {
     assert(size > -1, "The number of results expected should be a non-negative integer.")
     assert(filter.nonEmpty, "Filter cannot be empty.")

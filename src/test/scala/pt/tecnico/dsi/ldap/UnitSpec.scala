@@ -10,7 +10,7 @@ abstract class UnitSpec extends AsyncFlatSpec with Matchers with OptionValues wi
   val simpleLdap = new Ldap()
   val ldapWithBlockingPool = new Ldap(new Settings(ConfigFactory.parseString(s"""
   ldap {
-    host = "ldap://localhost:8389"
+    host = "ldap://localhost:389"
     base-dn = "dc=example,dc=org"
     bind-dn = "cn=admin,dc=example,dc=org"
     bind-password = "admin"
